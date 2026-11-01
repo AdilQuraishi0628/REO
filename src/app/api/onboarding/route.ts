@@ -112,9 +112,10 @@ export async function POST(request: Request) {
       if (input.action === "menu") return NextResponse.json({ step: 2 });
       if (input.action === "wifi") return NextResponse.json({ step: 3 });
       if (input.action === "qr") {
+        const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL || "https://reo-tau.vercel.app";
         return NextResponse.json({
           step: 4,
-          guestUrl: "http://localhost:3000/t/demo-table-1",
+          guestUrl: `${configuredOrigin.replace(/\/$/, "")}/t/demo-table-1`,
           linkId: "demo-link-1",
         });
       }

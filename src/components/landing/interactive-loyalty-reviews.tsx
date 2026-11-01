@@ -178,7 +178,7 @@ export function InteractiveLoyaltyReviews() {
                     aria-label={`Stamp visit ${slot}`}
                   >
                     {isStamped ? (
-                      <span style={{ fontSize: "16px" }}>✓</span>
+                      <Icon name="check" size={14} />
                     ) : (
                       <span>{slot}</span>
                     )}
@@ -189,8 +189,9 @@ export function InteractiveLoyaltyReviews() {
 
             {/* Reward Banner */}
             {rewardUnlocked ? (
-              <div className="tt-stamp-reward-banner">
-                🎉 Reward Unlocked! Free Specialty Pour-Over ready for Table 4!
+              <div className="tt-stamp-reward-banner" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                <Icon name="spark" size={16} />
+                <span>Reward unlocked! Free specialty pour-over ready for Table 4!</span>
               </div>
             ) : (
               <div style={{ textAlign: "center", fontSize: "11px", color: "var(--tt-ink-muted)" }}>
@@ -202,7 +203,7 @@ export function InteractiveLoyaltyReviews() {
 
         {/* Interactive Demo 2: Google Reviews Booster & Safeguard */}
         <div className="tt-demo-card">
-          <span className="tt-card-badge">Reputation Engine</span>
+          <span className="tt-card-badge">Reputation engine</span>
           <h3>Smart Google Review Safeguard</h3>
           <p>
             Filter happy praise to Google Maps, while capturing critiques privately before they become
@@ -238,14 +239,20 @@ export function InteractiveLoyaltyReviews() {
             {/* Smart Routing Explanation */}
             {selectedRating >= 4 ? (
               <div className="tt-review-feedback-outcome google">
-                <strong>✓ 4-5 Stars Detected:</strong>
+                <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Icon name="check" size={14} />
+                  <span>4–5 stars detected:</span>
+                </strong>
                 <p style={{ margin: "4px 0 0", fontSize: "12px" }}>
                   Guest is prompted with a 1-tap redirect straight to your Google Maps review dialog in Raipur.
                 </p>
               </div>
             ) : (
               <div className="tt-review-feedback-outcome manager">
-                <strong>🛡 Private Feedback Protection:</strong>
+                <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Icon name="lock" size={14} />
+                  <span>Private feedback protection:</span>
+                </strong>
                 <p style={{ margin: "4px 0 0", fontSize: "12px" }}>
                   Critique is routed directly to the restaurant owner&apos;s WhatsApp/Dashboard, keeping public Google ratings safe.
                 </p>

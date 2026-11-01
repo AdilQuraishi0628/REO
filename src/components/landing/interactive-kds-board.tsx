@@ -202,7 +202,10 @@ export function InteractiveKDSBoard() {
                     advanceTicket(ticket.id, "preparing");
                   }}
                 >
-                  Mark Order Ready ✓
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span>Mark order ready</span>
+                    <Icon name="check" size={13} />
+                  </span>
                 </button>
               </div>
             ))}
@@ -211,8 +214,9 @@ export function InteractiveKDSBoard() {
           {/* Column 3: Ready to Serve */}
           <div className="tt-kds-column">
             <div className="tt-kds-col-header">
-              <span className="tt-kds-col-title" style={{ color: "#34D399" }}>
-                ✓ Ready for Runner
+              <span className="tt-kds-col-title" style={{ color: "#34D399", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Icon name="check" size={13} />
+                <span>Ready for runner</span>
               </span>
               <span className="tt-kds-col-count">{getTicketsByStatus("ready").length}</span>
             </div>

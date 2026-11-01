@@ -271,7 +271,7 @@ export function FeedbackAdminSection({ restaurantId }: { restaurantId: string })
             <Pagination page={page} total={total} pageSize={50} onPageChange={setPage} />
           </>
         ) : (
-          <p className="admin-empty-message">No feedback matches this filter.</p>
+          <p className="admin-empty-message">No feedback received yet. Diners&apos; ratings and notes will appear here automatically.</p>
         )}
       </section>
     </>
@@ -398,7 +398,7 @@ export function LoyaltyAdminSection({ restaurantId }: { restaurantId: string }) 
             <Pagination page={page} total={total} pageSize={50} onPageChange={setPage} />
           </>
         ) : (
-          <p className="admin-empty-message">New loyalty members will show up here.</p>
+          <p className="admin-empty-message">No loyalty members yet. Diners who enroll at the table will appear here.</p>
         )}
       </section>
     </>

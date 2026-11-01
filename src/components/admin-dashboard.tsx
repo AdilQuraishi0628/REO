@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { AdminRestaurant } from "@/lib/admin-auth";
+import { useRealtimeChannel, type ChannelTableConfig } from "@/hooks/use-realtime-table";
+import AdminReservationsSection from "@/components/admin-reservations-section";
 import {
   AnalyticsSection,
   FeedbackAdminSection,
@@ -20,7 +22,6 @@ import {
   IconOrder,
   IconServed,
   IconStaff,
-  IconSearch,
   IconEdit,
   IconDelete,
   IconClock,
@@ -60,6 +61,13 @@ export type AdminDashboardData = {
     loyalty_points_per_amount?: number;
     loyalty_points_goal?: number;
     kitchen_pin?: string;
+    enable_reservations?: boolean;
+    reservation_opening_time?: string | null;
+    reservation_closing_time?: string | null;
+    reservation_slot_duration?: number | null;
+    reservation_max_party_size?: number | null;
+    reservation_max_days_advance?: number | null;
+    reservation_auto_confirm?: boolean | null;
   };
   categories: {
     id: string;
@@ -111,6 +119,7 @@ type Section =
   | "features"
   | "menu"
   | "tables"
+  | "reservations"
   | "loyalty"
   | "reviews"
   | "overview"
@@ -121,6 +130,7 @@ const navItems: { id: Section; label: string; badge?: string }[] = [
   { id: "features", label: "Feature Toggles" },
   { id: "menu", label: "Menu Management" },
   { id: "tables", label: "Tables & QR" },
+  { id: "reservations", label: "Table Reservations" },
   { id: "loyalty", label: "Loyalty Settings" },
   { id: "reviews", label: "Reviews & Feedback" },
   { id: "overview", label: "Analytics Overview" },
@@ -137,6 +147,8 @@ function getSectionIcon(id: Section) {
       return <IconPlates size={17} />;
     case "tables":
       return <IconTable size={17} />;
+    case "reservations":
+      return <IconClock size={17} />;
     case "loyalty":
       return <IconStar size={17} />;
     case "reviews":
@@ -249,7 +261,7 @@ export default function AdminDashboard({
 
   // Category and Item states
   const [categoryName, setCategoryName] = useState("");
-  const [categoryIcon, setCategoryIcon] = useState("☕");
+  const [categoryIcon, setCategoryIcon] = useState("coffee");
   const [editingCategoryId, setEditingCategoryId] = useState("");
   const [itemId, setItemId] = useState("");
   const [itemForm, setItemForm] = useState({
@@ -295,6 +307,179 @@ export default function AdminDashboard({
     void loadData();
   }, [loadData]);
 
+  // Multi-device live sync via Realtime channel
+  const adminChannelConfigs = useMemo<ChannelTableConfig[]>(() => [
+    {
+      table: "menu_items",
+      filter: `restaurant_id=eq.${restaurantId}`,
+      onInsert: (payload) => {
+        const item = payload as Record<string, unknown>;
+        setData((prev) => {
+          if (!prev) return prev;
+          if (prev.items.some((i) => i.id === item.id)) return prev;
+          return {
+            ...prev,
+            items: [
+              ...prev.items,
+              {
+                id: String(item.id),
+                category_id: String(item.category_id || ""),
+                name: String(item.name || ""),
+                description: String(item.description || ""),
+                price: Number(item.price || 0),
+                image_url: typeof item.image_url === "string" ? item.image_url : null,
+                dietary_tags: Array.isArray(item.dietary_tags) ? (item.dietary_tags as string[]) : [],
+                is_available: Boolean(item.is_available),
+                sort_order: Number(item.sort_order || 0),
+                pricing_variants: Array.isArray(item.pricing_variants)
+                  ? (item.pricing_variants as { name: string; price: number }[])
+                  : undefined,
+              },
+            ],
+          };
+        });
+      },
+      onUpdate: (payload) => {
+        const item = payload as Record<string, unknown>;
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: prev.items.map((i) =>
+              i.id === item.id
+                ? {
+                    ...i,
+                    category_id: item.category_id !== undefined ? String(item.category_id) : i.category_id,
+                    name: item.name !== undefined ? String(item.name) : i.name,
+                    description: item.description !== undefined ? String(item.description || "") : i.description,
+                    price: item.price !== undefined ? Number(item.price) : i.price,
+                    image_url: item.image_url !== undefined ? (item.image_url as string | null) : i.image_url,
+                    dietary_tags: Array.isArray(item.dietary_tags) ? (item.dietary_tags as string[]) : i.dietary_tags,
+                    is_available: item.is_available !== undefined ? Boolean(item.is_available) : i.is_available,
+                    sort_order: item.sort_order !== undefined ? Number(item.sort_order) : i.sort_order,
+                    pricing_variants: Array.isArray(item.pricing_variants)
+                      ? (item.pricing_variants as { name: string; price: number }[])
+                      : i.pricing_variants,
+                  }
+                : i,
+            ),
+          };
+        });
+      },
+      onDelete: (payload) => {
+        const item = payload as Record<string, unknown>;
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: prev.items.filter((i) => i.id !== item.id),
+          };
+        });
+      },
+    },
+    {
+      table: "menu_categories",
+      filter: `restaurant_id=eq.${restaurantId}`,
+      onInsert: (payload) => {
+        const cat = payload as Record<string, unknown>;
+        setData((prev) => {
+          if (!prev) return prev;
+          if (prev.categories.some((c) => c.id === cat.id)) return prev;
+          return {
+            ...prev,
+            categories: [
+              ...prev.categories,
+              {
+                id: String(cat.id),
+                name: String(cat.name || ""),
+                sort_order: Number(cat.sort_order || 0),
+                icon: typeof cat.icon === "string" ? cat.icon : null,
+                image_url: typeof cat.image_url === "string" ? cat.image_url : null,
+              },
+            ],
+          };
+        });
+      },
+      onUpdate: (payload) => {
+        const cat = payload as Record<string, unknown>;
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            categories: prev.categories.map((c) =>
+              c.id === cat.id
+                ? {
+                    ...c,
+                    name: cat.name !== undefined ? String(cat.name) : c.name,
+                    sort_order: cat.sort_order !== undefined ? Number(cat.sort_order) : c.sort_order,
+                    icon: cat.icon !== undefined ? (cat.icon as string | null) : c.icon,
+                    image_url: cat.image_url !== undefined ? (cat.image_url as string | null) : c.image_url,
+                  }
+                : c,
+            ),
+          };
+        });
+      },
+      onDelete: (payload) => {
+        const cat = payload as Record<string, unknown>;
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            categories: prev.categories.filter((c) => c.id !== cat.id),
+          };
+        });
+      },
+    },
+    {
+      table: "restaurants",
+      filter: `id=eq.${restaurantId}`,
+      onUpdate: (payload) => {
+        const r = payload as Record<string, unknown>;
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            restaurant: {
+              ...prev.restaurant,
+              name: typeof r.name === "string" ? r.name : prev.restaurant.name,
+              tagline: typeof r.tagline === "string" ? r.tagline : prev.restaurant.tagline,
+              description: typeof r.description === "string" ? r.description : prev.restaurant.description,
+              hero_image: typeof r.hero_image === "string" ? r.hero_image : prev.restaurant.hero_image,
+              logo_url: typeof r.logo_url === "string" ? r.logo_url : prev.restaurant.logo_url,
+              wifi_name: typeof r.wifi_name === "string" ? r.wifi_name : prev.restaurant.wifi_name,
+              wifi_ssid: typeof r.wifi_ssid === "string" ? r.wifi_ssid : prev.restaurant.wifi_ssid,
+              wifi_password: typeof r.wifi_password === "string" ? r.wifi_password : prev.restaurant.wifi_password,
+              enable_wifi: r.enable_wifi !== undefined ? Boolean(r.enable_wifi) : prev.restaurant.enable_wifi,
+              enable_call_waiter: r.enable_call_waiter !== undefined ? Boolean(r.enable_call_waiter) : prev.restaurant.enable_call_waiter,
+              enable_request_bill: r.enable_request_bill !== undefined ? Boolean(r.enable_request_bill) : prev.restaurant.enable_request_bill,
+              enable_menu: r.enable_menu !== undefined ? Boolean(r.enable_menu) : prev.restaurant.enable_menu,
+              enable_ordering: r.enable_ordering !== undefined ? Boolean(r.enable_ordering) : prev.restaurant.enable_ordering,
+              enable_feedback: r.enable_feedback !== undefined ? Boolean(r.enable_feedback) : prev.restaurant.enable_feedback,
+              enable_google_reviews: r.enable_google_reviews !== undefined ? Boolean(r.enable_google_reviews) : prev.restaurant.enable_google_reviews,
+              google_review_url: typeof r.google_review_url === "string" ? r.google_review_url : prev.restaurant.google_review_url,
+              instagram_url: typeof r.instagram_url === "string" ? r.instagram_url : prev.restaurant.instagram_url,
+              primary_color: typeof r.primary_color === "string" ? r.primary_color : prev.restaurant.primary_color,
+              enable_reservations: r.enable_reservations !== undefined ? Boolean(r.enable_reservations) : prev.restaurant.enable_reservations,
+              reservation_opening_time: typeof r.reservation_opening_time === "string" ? r.reservation_opening_time : prev.restaurant.reservation_opening_time,
+              reservation_closing_time: typeof r.reservation_closing_time === "string" ? r.reservation_closing_time : prev.restaurant.reservation_closing_time,
+              reservation_slot_duration: typeof r.reservation_slot_duration === "number" ? r.reservation_slot_duration : prev.restaurant.reservation_slot_duration,
+              reservation_max_party_size: typeof r.reservation_max_party_size === "number" ? r.reservation_max_party_size : prev.restaurant.reservation_max_party_size,
+              reservation_max_days_advance: typeof r.reservation_max_days_advance === "number" ? r.reservation_max_days_advance : prev.restaurant.reservation_max_days_advance,
+              reservation_auto_confirm: typeof r.reservation_auto_confirm === "boolean" ? r.reservation_auto_confirm : prev.restaurant.reservation_auto_confirm,
+            },
+          };
+        });
+      },
+    },
+  ], [restaurantId]);
+
+  useRealtimeChannel({
+    channelName: `admin-dashboard-${restaurantId}`,
+    configs: adminChannelConfigs,
+    onRefetchNeeded: loadData,
+  });
+
   async function performRequest(url: string, body: unknown, method = "POST") {
     setIsBusy(true);
     setError("");
@@ -307,48 +492,92 @@ export default function AdminDashboard({
       });
       const result = await parseResponse(response);
       setMessage("Changes saved successfully.");
-      await loadData();
+      setTimeout(() => setMessage(""), 4000);
       return result;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Could not save changes.");
-      return null;
+      setTimeout(() => setError(""), 6000);
+      throw actionError;
     } finally {
       setIsBusy(false);
     }
   }
 
-  // Update restaurant settings (supports partial updates)
+  // Update restaurant settings (optimistic update with rollback)
   async function updateRestaurantSettings(partialPayload: Record<string, unknown>) {
-    return await performRequest(`/api/admin/${restaurantId}`, partialPayload, "PATCH");
+    const prevRestaurant = data?.restaurant;
+    if (prevRestaurant) {
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              restaurant: {
+                ...prev.restaurant,
+                ...partialPayload,
+              },
+            }
+          : prev,
+      );
+    }
+    try {
+      return await performRequest(`/api/admin/${restaurantId}`, partialPayload, "PATCH");
+    } catch {
+      if (prevRestaurant) {
+        setData((prev) => (prev ? { ...prev, restaurant: prevRestaurant } : prev));
+      }
+      return null;
+    }
   }
 
   // Categories
   async function saveCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!categoryName.trim()) return;
-    const result = await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: editingCategoryId ? "update-category" : "create-category",
-      id: editingCategoryId || undefined,
-      name: categoryName.trim(),
-      icon: categoryIcon || undefined,
-    });
-    if (result) {
-      setCategoryName("");
-      setCategoryIcon("☕");
-      setEditingCategoryId("");
+    try {
+      const result = await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: editingCategoryId ? "update-category" : "create-category",
+        id: editingCategoryId || undefined,
+        name: categoryName.trim(),
+        icon: categoryIcon || undefined,
+      });
+      if (result) {
+        setCategoryName("");
+        setCategoryIcon("coffee");
+        setEditingCategoryId("");
+        await loadData();
+      }
+    } catch {
+      // Error handled by performRequest
     }
   }
 
   async function deleteCategory(id: string) {
     if (!window.confirm("Delete this category and all its items?")) return;
-    await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: "delete-category",
-      id,
-    });
-    if (editingCategoryId === id) {
-      setEditingCategoryId("");
-      setCategoryName("");
-      setCategoryIcon("☕");
+    const prevCategories = data?.categories;
+    const prevItems = data?.items;
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            categories: prev.categories.filter((c) => c.id !== id),
+            items: prev.items.filter((i) => i.category_id !== id),
+          }
+        : prev,
+    );
+    try {
+      await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: "delete-category",
+        id,
+      });
+      if (editingCategoryId === id) {
+        setEditingCategoryId("");
+        setCategoryName("");
+        setCategoryIcon("coffee");
+      }
+    } catch {
+      if (prevCategories && prevItems) {
+        setData((prev) => (prev ? { ...prev, categories: prevCategories, items: prevItems } : prev));
+      }
     }
   }
 
@@ -359,10 +588,27 @@ export default function AdminDashboard({
     if (catIndex < 0 || targetIndex < 0 || targetIndex >= data.categories.length) return;
     const orderedIds = data.categories.map((entry) => entry.id);
     [orderedIds[catIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[catIndex]];
-    await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: "reorder-categories",
-      orderedIds,
+
+    const prevCategories = data.categories;
+    setData((prev) => {
+      if (!prev) return prev;
+      const reordered = orderedIds
+        .map((id, idx) => {
+          const found = prev.categories.find((c) => c.id === id);
+          return found ? { ...found, sort_order: idx } : null;
+        })
+        .filter(Boolean) as AdminDashboardData["categories"];
+      return { ...prev, categories: reordered };
     });
+
+    try {
+      await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: "reorder-categories",
+        orderedIds,
+      });
+    } catch {
+      setData((prev) => (prev ? { ...prev, categories: prevCategories } : prev));
+    }
   }
 
   // Items
@@ -398,42 +644,92 @@ export default function AdminDashboard({
 
   async function saveItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: itemId ? "update-item" : "create-item",
-      id: itemId || undefined,
-      ...itemForm,
-      dietaryTags: itemForm.dietaryTags,
-      price: Number(itemForm.price),
-      pricingVariants: itemForm.pricingVariants,
-    });
-    if (result) resetItemForm();
+    try {
+      const result = await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: itemId ? "update-item" : "create-item",
+        id: itemId || undefined,
+        ...itemForm,
+        dietaryTags: itemForm.dietaryTags,
+        price: Number(itemForm.price),
+        pricingVariants: itemForm.pricingVariants,
+      });
+      if (result) {
+        resetItemForm();
+        await loadData();
+      }
+    } catch {
+      // Error handled by performRequest
+    }
   }
 
   async function deleteItem(id: string) {
     if (!window.confirm("Are you sure you want to delete this menu item?")) return;
-    await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: "delete-item",
-      id,
-    });
-    if (itemId === id) resetItemForm();
+    const prevItems = data?.items;
+    setData((prev) => (prev ? { ...prev, items: prev.items.filter((i) => i.id !== id) } : prev));
+    try {
+      await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: "delete-item",
+        id,
+      });
+      if (itemId === id) resetItemForm();
+    } catch {
+      if (prevItems) setData((prev) => (prev ? { ...prev, items: prevItems } : prev));
+    }
   }
 
+  // Optimistic availability toggle with rollback
   async function toggleItemAvailability(item: AdminDashboardData["items"][number]) {
-    await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: "toggle-availability",
-      id: item.id,
-      isAvailable: !item.is_available,
-    });
+    const prevItems = data?.items;
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((i) =>
+              i.id === item.id ? { ...i, is_available: !i.is_available } : i,
+            ),
+          }
+        : prev,
+    );
+    try {
+      await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: "toggle-availability",
+        id: item.id,
+        isAvailable: !item.is_available,
+      });
+    } catch {
+      if (prevItems) {
+        setData((prev) => (prev ? { ...prev, items: prevItems } : prev));
+      }
+    }
   }
 
+  // Optimistic bulk category availability toggle with rollback
   async function bulkCategoryAvailability(categoryId: string, isAvailable: boolean) {
-    await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: "bulk-availability",
-      categoryId,
-      isAvailable,
-    });
+    const prevItems = data?.items;
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((i) =>
+              i.category_id === categoryId ? { ...i, is_available: isAvailable } : i,
+            ),
+          }
+        : prev,
+    );
+    try {
+      await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: "bulk-availability",
+        categoryId,
+        isAvailable,
+      });
+    } catch {
+      if (prevItems) {
+        setData((prev) => (prev ? { ...prev, items: prevItems } : prev));
+      }
+    }
   }
 
+  // Optimistic reorder menu item with rollback
   async function moveMenuItem(itemIdToMove: string, direction: -1 | 1) {
     if (!data) return;
     const item = data.items.find((entry) => entry.id === itemIdToMove);
@@ -444,11 +740,32 @@ export default function AdminDashboard({
     if (itemIndex < 0 || targetIndex < 0 || targetIndex >= categoryItems.length) return;
     const orderedIds = categoryItems.map((entry) => entry.id);
     [orderedIds[itemIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[itemIndex]];
-    await performRequest(`/api/admin/${restaurantId}/menu`, {
-      operation: "reorder-items",
-      categoryId: item.category_id,
-      orderedIds,
+
+    const prevItems = data.items;
+    setData((prev) => {
+      if (!prev) return prev;
+      const otherItems = prev.items.filter((i) => i.category_id !== item.category_id);
+      const reordered = orderedIds
+        .map((id, idx) => {
+          const found = prev.items.find((i) => i.id === id);
+          return found ? { ...found, sort_order: idx } : null;
+        })
+        .filter(Boolean) as AdminDashboardData["items"];
+      return {
+        ...prev,
+        items: [...otherItems, ...reordered],
+      };
     });
+
+    try {
+      await performRequest(`/api/admin/${restaurantId}/menu`, {
+        operation: "reorder-items",
+        categoryId: item.category_id,
+        orderedIds,
+      });
+    } catch {
+      setData((prev) => (prev ? { ...prev, items: prevItems } : prev));
+    }
   }
 
   async function signOut() {
@@ -478,19 +795,21 @@ export default function AdminDashboard({
         <div className="sidebar-top">
           <Link className="admin-brand-lockup" href="/">
             <div className="admin-brand-icon-box">
-              <span className="brand-monogram-t">T</span>
+              <span className="brand-monogram-t">
+                <Icon name="monogram-t" size={20} />
+              </span>
             </div>
             <div className="admin-brand-titles">
               <strong className="admin-brand-name">TableTap</strong>
-              <span className="admin-brand-sub">Raipur Admin</span>
+              <span className="admin-brand-sub">Raipur admin</span>
             </div>
           </Link>
 
           {/* Restaurant Branch Switcher */}
           <div className="sidebar-branch-selector">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <label htmlFor="branch-select" style={{ fontSize: 11, fontWeight: 600, color: "var(--theme-text-light, #8C7B70)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Active Venue:
+              <label htmlFor="branch-select" style={{ fontSize: 11, fontWeight: 600, color: "var(--theme-text-light, #8C7B70)" }}>
+                Active venue:
               </label>
               <Link
                 href="/onboarding?new=true"
@@ -578,7 +897,7 @@ export default function AdminDashboard({
         {/* Top Navbar */}
         <header className="admin-topbar">
           <div className="topbar-left">
-            <span className="topbar-sub">RAIPUR RESTAURANT MANAGER</span>
+            <span className="topbar-sub">Raipur restaurant manager</span>
             <h1 className="topbar-title">{activeRestaurant?.name ?? "Restaurant Dashboard"}</h1>
           </div>
 
@@ -676,7 +995,7 @@ export default function AdminDashboard({
               onCancelCategory={() => {
                 setEditingCategoryId("");
                 setCategoryName("");
-                setCategoryIcon("☕");
+                setCategoryIcon("coffee");
               }}
               onCancelItem={resetItemForm}
               onCategoryIconChange={setCategoryIcon}
@@ -686,7 +1005,7 @@ export default function AdminDashboard({
               onEditCategory={(category) => {
                 setEditingCategoryId(category.id);
                 setCategoryName(category.name);
-                setCategoryIcon(category.icon || "☕");
+                setCategoryIcon(category.icon || "coffee");
               }}
               onEditItem={startEditItem}
               onItemFormChange={setItemForm}
@@ -701,6 +1020,17 @@ export default function AdminDashboard({
           {/* SECTION D: TABLES & QR */}
           {section === "tables" && (
             <TablesAdminSection key={restaurantId} restaurantId={restaurantId} />
+          )}
+
+          {/* SECTION: TABLE RESERVATIONS */}
+          {!isLoading && data && section === "reservations" && (
+            <AdminReservationsSection
+              key={restaurantId}
+              restaurantId={restaurantId}
+              restaurantName={data.restaurant.name}
+              settings={data.restaurant}
+              onUpdateSettings={updateRestaurantSettings}
+            />
           )}
 
           {/* SECTION E: LOYALTY SETTINGS */}
@@ -1138,7 +1468,7 @@ function ProfileSection({
         {/* 7. Google Review Link (Very Important) */}
         <div className="form-group-block google-highlight-box">
           <div className="google-box-header">
-            <span className="google-icon">⭐️</span>
+            <span className="google-icon"><Icon name="star" size={20} /></span>
             <div>
               <h3>Google Review Link (Very Important)</h3>
               <p>
@@ -1285,6 +1615,7 @@ function FeaturesSection({
     enableWifi: restaurant.enable_wifi !== false,
     enableFeedback: restaurant.enable_feedback !== false,
     enableGoogleReviews: restaurant.enable_google_reviews !== false,
+    enableReservations: restaurant.enable_reservations !== false,
   });
 
   const featureList = [
@@ -1301,6 +1632,13 @@ function FeaturesSection({
       iconName: "bag" as const,
       desc: "Allow seated guests to add items to their cart and send orders directly to KDS.",
       tip: "When disabled, TableTap operates in pure view-only digital menu mode.",
+    },
+    {
+      key: "enableReservations" as const,
+      label: "Table Reservations",
+      iconName: "clock" as const,
+      desc: "Allow guests to reserve dining tables in advance with live capacity checks.",
+      tip: "Manage reservations from the dedicated Table Reservations tab.",
     },
     {
       key: "loyaltyEnabled" as const,
@@ -1780,7 +2118,7 @@ function MenuSection(props: {
                   >
                     <span className="tag-color-indicator" style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color, display: "inline-block", marginRight: 6 }} />
                     <span>{tag.label}</span>
-                    {isSelected && <span className="tag-check" style={{ marginLeft: 6 }}>✓</span>}
+                    {isSelected && <span className="tag-check" style={{ marginLeft: 6, display: "inline-flex", alignItems: "center" }}><Icon name="check" size={12} /></span>}
                   </button>
                 );
               })}
@@ -2283,7 +2621,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
           {isLoading ? (
             <p className="admin-loading-indicator">Loading tables...</p>
           ) : tables.length === 0 ? (
-            <p className="admin-empty-text">No tables yet. Add your first table above.</p>
+            <p className="admin-empty-text">No tables yet. Add your first table above to generate QR codes.</p>
           ) : (
             tables.map((table, tIdx) => {
               const guestUrl = `${siteOrigin}/t/${table.unique_code}`;
@@ -2509,7 +2847,7 @@ function LoyaltySettingsSection({
                 <div className="preview-stamps-grid">
                   {Array.from({ length: Math.min(rewardGoal, 10) }).map((_, i) => (
                     <div className={`mini-stamp-slot ${i === 0 ? "filled" : ""}`} key={i}>
-                      {i === 0 ? "★" : i + 1}
+                      {i === 0 ? <Icon name="star" size={12} /> : i + 1}
                     </div>
                   ))}
                 </div>

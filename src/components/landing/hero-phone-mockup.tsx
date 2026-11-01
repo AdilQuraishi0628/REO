@@ -351,7 +351,10 @@ export function HeroPhoneMockup() {
                   textAlign: "center",
                 }}
               >
-                ✓ Added {lastAddedItem} to Table 4 order
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                  <Icon name="check" size={11} />
+                  <span>Added {lastAddedItem} to Table 4 order</span>
+                </span>
               </div>
             )}
           </div>

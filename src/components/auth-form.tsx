@@ -110,7 +110,7 @@ export default function AuthForm({
       return;
     }
     if ((mode === "signup" || mode === "reset-password") && password.length < 8) {
-      setError("Use a password with at least 8 characters.");
+      setError("Password needs at least 8 characters.");
       return;
     }
 
@@ -182,7 +182,7 @@ export default function AuthForm({
       return;
     }
     if (!staffPin || staffPin.length < 4) {
-      setError("Please enter the 4-digit staff PIN.");
+      setError("Please enter a valid 4-digit staff PIN.");
       return;
     }
 

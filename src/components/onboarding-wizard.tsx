@@ -136,7 +136,9 @@ export default function OnboardingWizard({ email }: { email: string }) {
     <main className="onboarding-page">
       <header className="onboarding-header">
         <Link className="brand-lockup" href="/">
-          <span className="brand-mark">T</span>
+          <span className="brand-mark">
+            <Icon name="monogram-t" size={24} />
+          </span>
           <span className="brand-name">TableTap</span>
         </Link>
         <span>{email}</span>

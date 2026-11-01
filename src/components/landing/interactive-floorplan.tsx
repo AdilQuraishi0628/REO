@@ -283,9 +283,14 @@ export function InteractiveFloorplan() {
                   fontWeight: 600,
                   textAlign: "center",
                   animation: "fadeIn 0.2s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
                 }}
               >
-                ✓ Added {flyAnimation} to cart!
+                <Icon name="check" size={13} />
+                <span>Added {flyAnimation} to cart</span>
               </div>
             )}
 
@@ -397,9 +402,14 @@ export function InteractiveFloorplan() {
                     textAlign: "center",
                     fontSize: "13px",
                     fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
                   }}
                 >
-                  ✓ Ticket dispatched to Kitchen KDS for {selectedTable.tableNumber}!
+                  <Icon name="check" size={13} />
+                  <span>Ticket dispatched to kitchen KDS for {selectedTable.tableNumber}</span>
                 </div>
               ) : (
                 <button

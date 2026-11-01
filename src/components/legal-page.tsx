@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 
 export function LegalPage({
   title,
@@ -13,7 +14,9 @@ export function LegalPage({
     <main className="legal-page">
       <header className="legal-header">
         <Link className="brand-lockup" href="/">
-          <span className="brand-mark">T</span>
+          <span className="brand-mark">
+            <Icon name="monogram-t" size={24} />
+          </span>
           <span className="brand-name">TableTap</span>
         </Link>
         <Link href="/admin/login">Restaurant sign in</Link>

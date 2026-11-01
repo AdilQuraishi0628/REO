@@ -259,15 +259,19 @@ export function HowItWorksPinned() {
                       </h4>
                       <div style={{ background: "#FFF", padding: "12px", borderRadius: "10px", border: "1px solid var(--tt-border)", marginBottom: "12px" }}>
                         <span style={{ fontSize: "12px", fontWeight: 700 }}>1x Iced Vanilla Latte (₹190)</span>
-                        <div style={{ marginTop: "6px", fontSize: "11px", color: "var(--tt-brass)" }}>
-                          ✓ Oat milk requested
-                          <br />✓ Less sweet (half syrup)
+                        <div style={{ marginTop: "6px", fontSize: "11px", color: "var(--tt-brass)", display: "flex", flexDirection: "column", gap: "3px" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            <Icon name="check" size={12} /> Oat milk requested
+                          </span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            <Icon name="check" size={12} /> Less sweet (half syrup)
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ background: "var(--tt-burgundy)", color: "#FFF", padding: "12px", borderRadius: "10px", textAlign: "center", fontSize: "13px", fontWeight: 700 }}>
-                      ✓ Send Order to Kitchen (₹190)
+                    <div style={{ background: "var(--tt-burgundy)", color: "#FFF", padding: "12px", borderRadius: "10px", textAlign: "center", fontSize: "13px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                      <Icon name="check" size={14} /> Send order to kitchen (₹190)
                     </div>
                   </div>
                 )}
@@ -328,7 +332,7 @@ export function HowItWorksPinned() {
                               fontWeight: 700,
                             }}
                           >
-                            ✓
+                            <Icon name="check" size={12} />
                           </div>
                         ))}
                         <div
@@ -353,8 +357,15 @@ export function HowItWorksPinned() {
                     </div>
 
                     <div style={{ background: "rgba(184, 138, 74, 0.12)", border: "1px solid var(--tt-brass)", borderRadius: "12px", padding: "10px", width: "100%" }}>
-                      <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--tt-burgundy)" }}>
-                        ★★★★★ Google Review
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--tt-burgundy)", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ display: "inline-flex", gap: "2px", color: "var(--tt-brass)" }}>
+                          <Icon name="star" size={12} fill="currentColor" />
+                          <Icon name="star" size={12} fill="currentColor" />
+                          <Icon name="star" size={12} fill="currentColor" />
+                          <Icon name="star" size={12} fill="currentColor" />
+                          <Icon name="star" size={12} fill="currentColor" />
+                        </span>
+                        <span>Google review</span>
                       </div>
                       <span style={{ fontSize: "10px", color: "var(--tt-ink-muted)" }}>
                         Prompted 1-click review on dining exit

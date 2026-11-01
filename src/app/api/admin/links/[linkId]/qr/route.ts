@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     width: 720,
     margin: 2,
     errorCorrectionLevel: "H",
-    color: { dark: "#222d20", light: "#ffffff" },
+    color: { dark: "#2A1A1D", light: "#ffffff" },
   });
 
   return new Response(new Uint8Array(qr), {

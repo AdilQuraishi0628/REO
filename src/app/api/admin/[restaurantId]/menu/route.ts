@@ -278,7 +278,7 @@ export async function POST(request: Request, { params }: RouteContext) {
 
       if (operation === "create-category" || operation === "update-category") {
         const catName = text(input.name, 100) || "New Category";
-        const catIcon = typeof input.icon === "string" && input.icon.trim() ? input.icon.trim() : "☕";
+        const catIcon = typeof input.icon === "string" && input.icon.trim() ? input.icon.trim() : "coffee";
         return NextResponse.json({
           category: {
             id: id || `cat-${Date.now()}`,

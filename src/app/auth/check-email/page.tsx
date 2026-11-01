@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { LegalFooter } from "@/components/auth-form";
+import { Icon } from "@/components/icons";
 
 export default function CheckEmailPage() {
   return (
     <main className="admin-login-page">
       <Link className="brand-lockup" href="/" aria-label="TableTap guest page">
-        <span className="brand-mark">T</span>
+        <span className="brand-mark">
+          <Icon name="monogram-t" size={24} />
+        </span>
         <span className="brand-name">TableTap</span>
       </Link>
       <section className="admin-login-card">
