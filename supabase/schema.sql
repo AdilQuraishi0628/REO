@@ -239,6 +239,7 @@ create table if not exists public.loyalty_members (
 
 alter table public.loyalty_members
   alter column email drop not null,
+  add column if not exists full_name text not null default '',
   add column if not exists phone text check (phone is null or phone ~ '^\+91[6-9][0-9]{9}$'),
   add column if not exists table_id uuid references public.tables(id) on delete set null;
 

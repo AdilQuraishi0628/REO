@@ -173,16 +173,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: insertError } = await supabase.from("loyalty_members").insert({
+  const insertPayload: Record<string, unknown> = {
     id,
     restaurant_id: restaurant.id,
     table_id: tableId,
-    full_name: fullName,
     email: email || null,
     phone,
     stamps: 0,
     reward_goal: restaurant.loyalty_reward_goal ?? LOYALTY_REWARD_GOAL,
-  });
+  };
+  if (fullName) {
+    insertPayload.full_name = fullName;
+  }
+
+  let { error: insertError } = await supabase.from("loyalty_members").insert(insertPayload);
+  if (insertError && /full_name/i.test(insertError.message)) {
+    delete insertPayload.full_name;
+    const retry = await supabase.from("loyalty_members").insert(insertPayload);
+    insertError = retry.error;
+  }
 
   if (insertError) {
     if (insertError.code === "23505") {
