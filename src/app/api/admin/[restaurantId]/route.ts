@@ -102,7 +102,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
       await Promise.all([
         supabase
           .from("restaurants")
-          .select("id, slug, name, tagline, description, address, city, phone, hours, hero_image, logo_url, wifi_name, wifi_ssid, wifi_password, enable_call_waiter, enable_request_bill, enable_wifi, enable_menu, enable_ordering, enable_feedback, enable_google_reviews, google_review_url, instagram_url, primary_color, secondary_color, loyalty_enabled, loyalty_type, loyalty_reward_goal, loyalty_reward_description, loyalty_points_per_amount, loyalty_points_goal, kitchen_pin")
+          .select("*")
           .eq("id", restaurantId)
           .single(),
         supabase
@@ -170,8 +170,12 @@ export async function GET(_request: Request, { params }: RouteContext) {
       }
     }
 
+    const restData = (restaurantResult.data ?? {}) as Record<string, unknown>;
     return NextResponse.json({
-      restaurant: restaurantResult.data,
+      restaurant: {
+        ...restData,
+        kitchen_pin: (restData.kitchen_pin as string) || "1234",
+      },
       categories,
       items,
       feedback: feedbackResult.data ?? [],
@@ -331,10 +335,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   if (loyaltyPointsGoal !== undefined) updatePayload.loyalty_points_goal = loyaltyPointsGoal;
   if (kitchenPin !== undefined) (updatePayload as Record<string, unknown>).kitchen_pin = kitchenPin;
 
-  const { error } = await context.serviceClient
+  let { error } = await context.serviceClient
     .from("restaurants")
     .update(updatePayload)
     .eq("id", restaurantId);
+
+  if (error && /kitchen_pin/i.test(error.message)) {
+    delete (updatePayload as Record<string, unknown>).kitchen_pin;
+    const retry = await context.serviceClient
+      .from("restaurants")
+      .update(updatePayload)
+      .eq("id", restaurantId);
+    error = retry.error;
+  }
 
   if (error) {
     console.error("Could not update restaurant settings:", error.message);

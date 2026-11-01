@@ -59,6 +59,7 @@ alter table public.restaurants
   add column if not exists loyalty_reward_description text not null default 'Complimentary treat or beverage',
   add column if not exists loyalty_points_per_amount integer not null default 10,
   add column if not exists loyalty_points_goal integer not null default 100,
+  add column if not exists kitchen_pin text not null default '1234',
   add column if not exists onboarding_step smallint not null default 0
     check (onboarding_step between 0 and 4);
 

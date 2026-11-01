@@ -41,11 +41,16 @@ export async function POST(request: Request) {
       const supabase = createClient(supabaseUrl, serviceKey);
       const { data } = await supabase
         .from("restaurants")
-        .select("id, name, kitchen_pin")
+        .select("*")
         .eq("id", restaurantId)
         .maybeSingle();
       if (data) {
-        matchedRestaurant = data as { id: string; name: string; kitchen_pin: string };
+        const row = data as Record<string, unknown>;
+        matchedRestaurant = {
+          id: row.id as string,
+          name: row.name as string,
+          kitchen_pin: (row.kitchen_pin as string) || "1234",
+        };
       }
     } catch (e) {
       console.warn("Could not query kitchen_pin from database:", e);
