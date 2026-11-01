@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     let { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     // If email is not confirmed, auto-confirm it using service role key and retry
-    if ((error && /confirm|verified/i.test(error.message)) || (data?.user && !data.user.email_confirmed_at)) {
+    if (error || (data?.user && !data.user.email_confirmed_at)) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (supabaseUrl && serviceRoleKey) {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
           });
           const { data: usersData } = await adminClient.auth.admin.listUsers();
           const targetUser = usersData?.users.find((u) => u.email?.toLowerCase() === email);
-          if (targetUser) {
+          if (targetUser && !targetUser.email_confirmed_at) {
             await adminClient.auth.admin.updateUserById(targetUser.id, { email_confirm: true });
             const retry = await supabase.auth.signInWithPassword({ email, password });
             data = retry.data;

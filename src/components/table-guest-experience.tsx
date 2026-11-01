@@ -817,6 +817,11 @@ export default function TableGuestExperience({
                 </section>
               ))
             )}
+            <footer className="guest-menu-footer">
+              <p className="powered-by">
+                Powered by <a href="/" target="_blank" rel="noopener noreferrer">TableTap</a> · Smart Dining for Raipur
+              </p>
+            </footer>
           </main>
         </>
       )}

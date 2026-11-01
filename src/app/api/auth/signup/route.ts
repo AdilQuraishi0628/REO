@@ -55,14 +55,33 @@ export async function POST(request: Request) {
 
       if (adminError) {
         if (/already registered|already exists/i.test(adminError.message)) {
-          // If already registered, try signing in with the provided password
+          // Find the existing user and auto-confirm them, updating password to what they just entered
+          try {
+            const { data: usersData } = await adminClient.auth.admin.listUsers();
+            const existingUser = usersData?.users.find((u) => u.email?.toLowerCase() === email);
+            if (existingUser) {
+              await adminClient.auth.admin.updateUserById(existingUser.id, {
+                email_confirm: true,
+                password,
+              });
+              const supabase = await createSupabaseServerClient();
+              const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+              if (!signInError) {
+                return NextResponse.json({ verified: true, success: true }, { status: 200 });
+              }
+            }
+          } catch (recoveryErr) {
+            console.warn("Failed to auto-confirm existing user:", recoveryErr);
+          }
+
+          // Fallback sign in attempt
           const supabase = await createSupabaseServerClient();
           const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
           if (!signInError) {
             return NextResponse.json({ verified: true, success: true }, { status: 200 });
           }
           return NextResponse.json(
-            { error: "An account with this email already exists. Please sign in." },
+            { error: "An account with this email already exists. Please sign in or use forgot password." },
             { status: 400 },
           );
         }
