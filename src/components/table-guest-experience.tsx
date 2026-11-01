@@ -1,31 +1,32 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { GuestPageData, MenuItem } from "@/lib/restaurant-data";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { GuestPageData, MenuItem, MenuCategory } from "@/lib/restaurant-data";
+import { useRealtimeChannel, type ChannelTableConfig } from "@/hooks/use-realtime-table";
+import LiveOrderTracker, {
+  getPersistedOrder,
+  persistOrder,
+  clearPersistedOrder,
+} from "@/components/live-order-tracker";
+import GuestReservationModal from "@/components/guest-reservation-modal";
 import {
   Icon,
   IconBag,
   IconAdd,
   IconRemove,
-  IconTable,
   IconOrder,
-  IconClock,
-  IconServed,
   IconBell,
   IconSearch,
-  IconFilter,
   IconClose,
-  IconBack,
-  IconEdit,
-  IconDelete,
-  IconStaff,
   IconWifi,
   IconMonogramT,
   IconBotanicalSprig,
   IconStar,
   IconVeg,
   IconPlates,
+  IconClock,
+  IconAlert,
   CategoryIcon,
 } from "@/components/icons";
 
@@ -46,12 +47,16 @@ function formatPrice(amount: number) {
 }
 
 export default function TableGuestExperience({
-  restaurant,
-  categories,
+  restaurant: initialRestaurant,
+  categories: initialCategories,
   tableId,
   tableCode,
   tableLabel = "Table 1",
 }: GuestPageData) {
+  const [restaurant, setRestaurant] = useState(initialRestaurant);
+  const [categories, setCategories] = useState<MenuCategory[]>(initialCategories);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,16 +87,188 @@ export default function TableGuestExperience({
     return () => clearInterval(timer);
   }, [waiterCooldown, billCooldown]);
 
-  // Wi-Fi, service, ordering, and review availability flags
+  // Wi-Fi, service, ordering, reservation, and review availability flags
   const wifiDisplayName = restaurant.wifiName || restaurant.wifiSsid || "";
   const showWifi = restaurant.enableWifi !== false && Boolean(wifiDisplayName);
   const showCallWaiter = restaurant.enableCallWaiter !== false;
   const showRequestBill = restaurant.enableRequestBill !== false;
   const showMenu = restaurant.enableMenu !== false;
   const showOrdering = restaurant.enableOrdering !== false;
+  const showReservations = restaurant.enableReservations !== false;
   const showGoogleReview = restaurant.enableGoogleReviews !== false && Boolean(restaurant.googleReviewUrl);
   const showFeedback = restaurant.enableFeedback !== false;
   const showReviewBtn = showGoogleReview || showFeedback;
+
+  // Sync props if changed
+  useEffect(() => {
+    setRestaurant(initialRestaurant);
+  }, [initialRestaurant]);
+
+  useEffect(() => {
+    setCategories(initialCategories);
+  }, [initialCategories]);
+
+  // Restore persisted active order from localStorage (valid for ~8 hours)
+  useEffect(() => {
+    const persisted = getPersistedOrder(restaurant.id);
+    if (persisted?.orderId) {
+      setActiveOrderId(persisted.orderId);
+    }
+  }, [restaurant.id]);
+
+  // Silent refetch on reconnect or tab focus
+  const silentRefetch = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/guest/${restaurant.id}/menu`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.restaurant) {
+          setRestaurant((prev) => ({ ...prev, ...json.restaurant }));
+        }
+        if (json.categories && Array.isArray(json.categories)) {
+          setCategories(json.categories);
+        }
+      }
+    } catch {
+      // Ignore background refetch failure
+    }
+  }, [restaurant.id]);
+
+  const guestChannelConfigs = useMemo<ChannelTableConfig[]>(() => [
+    {
+      table: "menu_items",
+      filter: `restaurant_id=eq.${restaurant.id}`,
+      onInsert: (payload) => {
+        const item = payload as Record<string, unknown>;
+        setCategories((prev) =>
+          prev.map((cat) => {
+            if (cat.id === item.category_id) {
+              const exists = cat.items.some((i) => i.id === item.id);
+              if (exists) return cat;
+              return {
+                ...cat,
+                items: [
+                  ...cat.items,
+                  {
+                    id: String(item.id),
+                    name: String(item.name || ""),
+                    description: String(item.description || ""),
+                    price: Number(item.price || 0),
+                    imageUrl: String(item.image_url || ""),
+                    dietaryTags: Array.isArray(item.dietary_tags) ? (item.dietary_tags as string[]) : [],
+                    isAvailable: Boolean(item.is_available),
+                  },
+                ],
+              };
+            }
+            return cat;
+          }),
+        );
+      },
+      onUpdate: (payload) => {
+        const item = payload as Record<string, unknown>;
+        setCategories((prev) =>
+          prev.map((cat) => ({
+            ...cat,
+            items: cat.items.map((i) =>
+              i.id === item.id
+                ? {
+                    ...i,
+                    name: item.name !== undefined ? String(item.name) : i.name,
+                    description: item.description !== undefined ? String(item.description || "") : i.description,
+                    price: item.price !== undefined ? Number(item.price) : i.price,
+                    imageUrl: item.image_url !== undefined ? String(item.image_url || "") : i.imageUrl,
+                    dietaryTags: Array.isArray(item.dietary_tags) ? (item.dietary_tags as string[]) : i.dietaryTags,
+                    isAvailable: item.is_available !== undefined ? Boolean(item.is_available) : i.isAvailable,
+                  }
+                : i,
+            ),
+          })),
+        );
+      },
+      onDelete: (payload) => {
+        const item = payload as Record<string, unknown>;
+        setCategories((prev) =>
+          prev.map((cat) => ({
+            ...cat,
+            items: cat.items.filter((i) => i.id !== item.id),
+          })),
+        );
+      },
+    },
+    {
+      table: "menu_categories",
+      filter: `restaurant_id=eq.${restaurant.id}`,
+      onInsert: (payload) => {
+        const cat = payload as Record<string, unknown>;
+        setCategories((prev) => {
+          if (prev.some((c) => c.id === cat.id)) return prev;
+          return [
+            ...prev,
+            {
+              id: String(cat.id),
+              name: String(cat.name || ""),
+              icon: typeof cat.icon === "string" ? cat.icon : undefined,
+              imageUrl: typeof cat.image_url === "string" ? cat.image_url : undefined,
+              items: [],
+            },
+          ];
+        });
+      },
+      onUpdate: (payload) => {
+        const cat = payload as Record<string, unknown>;
+        setCategories((prev) =>
+          prev.map((c) =>
+            c.id === cat.id
+              ? {
+                  ...c,
+                  name: cat.name !== undefined ? String(cat.name) : c.name,
+                  icon: typeof cat.icon === "string" ? cat.icon : c.icon,
+                  imageUrl: typeof cat.image_url === "string" ? cat.image_url : c.imageUrl,
+                }
+              : c,
+          ),
+        );
+      },
+      onDelete: (payload) => {
+        const cat = payload as Record<string, unknown>;
+        setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+      },
+    },
+    {
+      table: "restaurants",
+      filter: `id=eq.${restaurant.id}`,
+      onUpdate: (payload) => {
+        const r = payload as Record<string, unknown>;
+        setRestaurant((prev) => ({
+          ...prev,
+          name: typeof r.name === "string" ? r.name : prev.name,
+          wifiName: typeof r.wifi_name === "string" ? r.wifi_name : prev.wifiName,
+          wifiSsid: typeof r.wifi_ssid === "string" ? r.wifi_ssid : prev.wifiSsid,
+          wifiPassword: typeof r.wifi_password === "string" ? r.wifi_password : prev.wifiPassword,
+          enableWifi: r.enable_wifi !== undefined ? Boolean(r.enable_wifi) : prev.enableWifi,
+          enableCallWaiter: r.enable_call_waiter !== undefined ? Boolean(r.enable_call_waiter) : prev.enableCallWaiter,
+          enableRequestBill: r.enable_request_bill !== undefined ? Boolean(r.enable_request_bill) : prev.enableRequestBill,
+          enableMenu: r.enable_menu !== undefined ? Boolean(r.enable_menu) : prev.enableMenu,
+          enableOrdering: r.enable_ordering !== undefined ? Boolean(r.enable_ordering) : prev.enableOrdering,
+          enableFeedback: r.enable_feedback !== undefined ? Boolean(r.enable_feedback) : prev.enableFeedback,
+          enableGoogleReviews: r.enable_google_reviews !== undefined ? Boolean(r.enable_google_reviews) : prev.enableGoogleReviews,
+          googleReviewUrl: typeof r.google_review_url === "string" ? r.google_review_url : prev.googleReviewUrl,
+          logoUrl: typeof r.logo_url === "string" ? r.logo_url : prev.logoUrl,
+          primaryColor: typeof r.primary_color === "string" ? r.primary_color : prev.primaryColor,
+          enableReservations: r.enable_reservations !== undefined ? Boolean(r.enable_reservations) : prev.enableReservations,
+        }));
+      },
+    },
+  ], [restaurant.id]);
+
+  const { status: guestRealtimeStatus } = useRealtimeChannel({
+    channelName: `guest-menu-${restaurant.id}`,
+    configs: guestChannelConfigs,
+    onRefetchNeeded: silentRefetch,
+  });
+
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   // Feedback form state
   const [rating, setRating] = useState(5);
@@ -138,6 +315,28 @@ export default function TableGuestExperience({
   const total = useMemo(
     () => cart.reduce((sum, line) => sum + line.item.price * line.quantity, 0),
     [cart],
+  );
+
+  // Check availability of items currently in cart against live categories
+  const cartAvailabilityMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const line of cart) {
+      let isAvailable = false;
+      for (const cat of categories) {
+        const found = cat.items.find((i) => i.id === line.item.id);
+        if (found) {
+          isAvailable = found.isAvailable;
+          break;
+        }
+      }
+      map.set(line.item.id, isAvailable);
+    }
+    return map;
+  }, [cart, categories]);
+
+  const hasUnavailableCartItems = useMemo(
+    () => Array.from(cartAvailabilityMap.values()).some((avail) => !avail),
+    [cartAvailabilityMap],
   );
 
   // Motion state: bag icon gentle pulse on item add & live order status timeline
@@ -237,7 +436,7 @@ export default function TableGuestExperience({
 
   async function submitOrder(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (cart.length === 0 || isSubmitting) return;
+    if (cart.length === 0 || isSubmitting || hasUnavailableCartItems) return;
 
     setIsSubmitting(true);
     setOrderError("");
@@ -276,7 +475,14 @@ export default function TableGuestExperience({
       setOrderNotes("");
       setAction(null);
       setOrderSuccess(`Order placed for ${effectiveTableLabel}! Sent straight to the kitchen.`);
-      setOrderTimelineStep(1);
+
+      const resObj = result as { order?: { id?: string } } | null;
+      if (resObj?.order?.id) {
+        setActiveOrderId(resObj.order.id);
+        persistOrder(restaurant.id, resObj.order.id);
+      } else {
+        setOrderTimelineStep(1);
+      }
       setTimeout(() => setOrderSuccess(""), 7000);
     } catch (error) {
       console.error("Guest order submission failed:", error);
@@ -440,15 +646,35 @@ export default function TableGuestExperience({
       className="tabletap-guest-app"
       style={{ "--restaurant-primary": restaurant.primaryColor || "#722F37" } as React.CSSProperties}
     >
+      {guestRealtimeStatus === "offline" && (
+        <div className="guest-offline-banner" role="status" aria-live="polite">
+          <IconAlert size={14} />
+          <span>You are currently offline. Changes will automatically sync when connection returns.</span>
+        </div>
+      )}
+
       {/* 1. Top Bar: Table Badge Pill on Left, Search & Service Bell on Right */}
       <header className="guest-header">
         <div className="guest-header-inner">
           <div className="guest-table-badge">
-            <span className="table-badge-t">T</span>
+            <span className="table-badge-t">
+              <IconMonogramT size={13} />
+            </span>
             <span className="badge-text">{effectiveTableLabel}</span>
           </div>
 
           <div className="guest-header-actions">
+            {showReservations && (
+              <button
+                aria-label="Reserve a Table"
+                className="guest-header-reserve-btn"
+                onClick={() => setIsReservationOpen(true)}
+                type="button"
+              >
+                <IconClock size={14} />
+                <span>Reserve</span>
+              </button>
+            )}
             <button
               aria-label="Search dishes"
               className={`guest-circle-btn ${isSearchOpen ? "active" : ""}`}
@@ -473,7 +699,7 @@ export default function TableGuestExperience({
       {/* 2. Brand Hero: Eyebrow + Restaurant Name + Botanical Sprig */}
       <section className="guest-brand-hero">
         <p className="guest-brand-eyebrow">
-          {restaurant.tagline ? restaurant.tagline.toUpperCase() : "SPECIALTY COFFEE · RAIPUR"}
+          {restaurant.tagline || "Specialty coffee · Raipur"}
         </p>
         <div className="guest-brand-row">
           <h1 className="guest-brand-name">{restaurant.name}</h1>
@@ -481,9 +707,20 @@ export default function TableGuestExperience({
         </div>
       </section>
 
-      {/* Quick Table Actions: Connect to WiFi, Call Waiter, Request Bill */}
-      {(showWifi || showCallWaiter || showRequestBill) && (
+      {/* Quick Table Actions: Connect to WiFi, Call Waiter, Request Bill, Reserve Table */}
+      {(showWifi || showCallWaiter || showRequestBill || showReservations) && (
         <section aria-label="Table quick actions" className="table-quick-strip">
+          {showReservations && (
+            <button
+              className="table-action-pill reserve"
+              onClick={() => setIsReservationOpen(true)}
+              type="button"
+            >
+              <IconClock size={14} className="pill-icon-svg" />
+              <span className="pill-text">Reserve</span>
+            </button>
+          )}
+
           {showWifi && (
             <button
               className="table-action-pill wifi"
@@ -530,6 +767,17 @@ export default function TableGuestExperience({
               </span>
             </button>
           )}
+
+          {showReviewBtn && (
+            <button
+              className="table-action-pill review"
+              onClick={() => setAction("review")}
+              type="button"
+            >
+              <IconStar size={14} className="pill-icon-svg" />
+              <span className="pill-text">Review</span>
+            </button>
+          )}
         </section>
       )}
 
@@ -549,8 +797,23 @@ export default function TableGuestExperience({
         </aside>
       )}
 
-      {/* Live Order Status Timeline (Placed -> Preparing -> Ready -> Served) */}
-      {orderTimelineStep > 0 && (
+      {/* Live Order Tracker (Phase 4: Real-time Live Order Tracking) */}
+      {activeOrderId ? (
+        <div className="guest-tracker-wrapper">
+          <LiveOrderTracker
+            initialOrder={null}
+            onCallWaiter={handleCallWaiter}
+            onDismiss={() => {
+              setActiveOrderId(null);
+              clearPersistedOrder(restaurant.id);
+            }}
+            orderId={activeOrderId}
+            restaurantId={restaurant.id}
+            tableCode={tableCode || ""}
+            tableLabel={effectiveTableLabel}
+          />
+        </div>
+      ) : orderTimelineStep > 0 ? (
         <section aria-label="Order status timeline" className="guest-order-status-card motion-fade-rise">
           <div className="status-card-header">
             <div className="status-card-title">
@@ -602,7 +865,7 @@ export default function TableGuestExperience({
             </div>
           </div>
         </section>
-      )}
+      ) : null}
 
       {/* 2. Menu Navigation & Filters (Search + Veg toggle + Horizontal category pills) */}
       {!showMenu ? (
@@ -732,13 +995,16 @@ export default function TableGuestExperience({
                           key={`${category.id}-${item.id}`}
                         >
                           <div className="dish-card-thumb">
-                            {item.imageUrl ? (
+                            {item.imageUrl && !brokenImages[item.id] ? (
                               <div className="dish-img-wrap">
                                 <Image
                                   alt={item.name}
                                   className="dish-img"
                                   height={88}
                                   loading="lazy"
+                                  onError={() => {
+                                    setBrokenImages((prev) => ({ ...prev, [item.id]: true }));
+                                  }}
                                   src={item.imageUrl}
                                   unoptimized
                                   width={88}
@@ -922,50 +1188,66 @@ export default function TableGuestExperience({
                 ) : (
                   <form onSubmit={(e) => void submitOrder(e)}>
                     <div className="cart-items-list">
-                      {cart.map((line) => (
-                        <div className="cart-item-row" key={line.item.id}>
-                          <div className="cart-item-top">
-                            <div className="cart-item-info">
-                              <h4>{line.item.name}</h4>
-                              <span className="cart-item-unit">{formatPrice(line.item.price)} each</span>
-                            </div>
-                            <span className="cart-item-subtotal">
-                              {formatPrice(line.item.price * line.quantity)}
-                            </span>
-                          </div>
-
-                          <div className="cart-item-controls">
-                            <div className="cart-stepper">
-                              <button
-                                aria-label="Decrease quantity"
-                                onClick={() => decreaseItem(line.item.id)}
-                                type="button"
-                              >
-                                −
-                              </button>
-                              <span>{line.quantity}</span>
-                              <button
-                                aria-label="Increase quantity"
-                                onClick={() => addItem(line.item)}
-                                type="button"
-                              >
-                                +
-                              </button>
+                      {cart.map((line) => {
+                        const isLineAvailable = cartAvailabilityMap.get(line.item.id) ?? true;
+                        return (
+                          <div className={`cart-item-row ${!isLineAvailable ? "item-sold-out" : ""}`} key={line.item.id}>
+                            <div className="cart-item-top">
+                              <div className="cart-item-info">
+                                <div className="cart-item-title-wrap">
+                                  <h4>{line.item.name}</h4>
+                                  {!isLineAvailable && (
+                                    <span className="cart-sold-out-pill">No longer available</span>
+                                  )}
+                                </div>
+                                <span className="cart-item-unit">{formatPrice(line.item.price)} each</span>
+                              </div>
+                              <span className="cart-item-subtotal">
+                                {formatPrice(line.item.price * line.quantity)}
+                              </span>
                             </div>
 
-                            <input
-                              aria-label="Item special request"
-                              className="cart-inst-input"
-                              maxLength={200}
-                              onChange={(e) => updateItemInstructions(line.item.id, e.target.value)}
-                              placeholder="Note: less spicy, jain, etc."
-                              type="text"
-                              value={line.instructions}
-                            />
+                            <div className="cart-item-controls">
+                              <div className="cart-stepper">
+                                <button
+                                  aria-label="Decrease quantity"
+                                  onClick={() => decreaseItem(line.item.id)}
+                                  type="button"
+                                >
+                                  −
+                                </button>
+                                <span>{line.quantity}</span>
+                                <button
+                                  aria-label="Increase quantity"
+                                  disabled={!isLineAvailable}
+                                  onClick={() => addItem(line.item)}
+                                  type="button"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              <input
+                                aria-label="Item special request"
+                                className="cart-inst-input"
+                                maxLength={200}
+                                onChange={(e) => updateItemInstructions(line.item.id, e.target.value)}
+                                placeholder="Note: less spicy, jain, etc."
+                                type="text"
+                                value={line.instructions}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
+
+                    {hasUnavailableCartItems && (
+                      <div className="cart-unavailable-warning" role="alert">
+                        <Icon name="alert-triangle" size={15} />
+                        <span>Some items in your cart are now sold out. Please remove them to proceed.</span>
+                      </div>
+                    )}
 
                     <div className="cart-notes-block">
                       <label className="sheet-label">
@@ -1004,7 +1286,7 @@ export default function TableGuestExperience({
                       </div>
                       <button
                         className="guest-btn-primary full-width"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || hasUnavailableCartItems || cart.length === 0}
                         type="submit"
                       >
                         {isSubmitting ? "Placing Order..." : `Place Order · ${effectiveTableLabel}`}
@@ -1371,6 +1653,15 @@ export default function TableGuestExperience({
             )}
           </section>
         </div>
+      )}
+
+      {showReservations && (
+        <GuestReservationModal
+          isOpen={isReservationOpen}
+          onClose={() => setIsReservationOpen(false)}
+          restaurantId={restaurant.id}
+          restaurantName={restaurant.name}
+        />
       )}
     </div>
   );

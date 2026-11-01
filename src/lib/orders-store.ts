@@ -21,6 +21,7 @@ export type DemoOrder = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  status_updated_at: string;
   items: DemoOrderItem[];
 };
 
@@ -40,6 +41,7 @@ export const demoOrdersStore: DemoOrder[] = globalForOrders.demoOrders ?? [
     notes: "Please bring drinks first. Extra napkins.",
     created_at: new Date(Date.now() - 4 * 60_000).toISOString(),
     updated_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+    status_updated_at: new Date(Date.now() - 4 * 60_000).toISOString(),
     items: [
       {
         id: "item-1",
@@ -69,12 +71,14 @@ export const demoOrdersStore: DemoOrder[] = globalForOrders.demoOrders ?? [
 
 globalForOrders.demoOrders = demoOrdersStore;
 
-export function addDemoOrder(order: Omit<DemoOrder, "id" | "created_at" | "updated_at">): DemoOrder {
+export function addDemoOrder(order: Omit<DemoOrder, "id" | "created_at" | "updated_at" | "status_updated_at">): DemoOrder {
+  const now = new Date().toISOString();
   const newOrder: DemoOrder = {
     ...order,
     id: `demo-ord-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now,
+    updated_at: now,
+    status_updated_at: now,
   };
   demoOrdersStore.unshift(newOrder);
   return newOrder;
@@ -86,7 +90,11 @@ export function updateDemoOrderStatus(
 ): DemoOrder | null {
   const order = demoOrdersStore.find((o) => o.id === orderId);
   if (!order) return null;
+  const now = new Date().toISOString();
+  if (order.status !== status) {
+    order.status_updated_at = now;
+  }
   order.status = status;
-  order.updated_at = new Date().toISOString();
+  order.updated_at = now;
   return order;
 }

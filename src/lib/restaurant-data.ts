@@ -34,6 +34,7 @@ export type Restaurant = {
   loyaltyPointsPerAmount?: number;
   loyaltyPointsGoal?: number;
   kitchenPin?: string;
+  enableReservations?: boolean;
 };
 
 export type MenuItem = {
@@ -110,7 +111,7 @@ export const demoRestaurants: Record<string, { restaurant: Restaurant; categorie
       {
         id: "jr-coffee",
         name: "Coffee & Beverages",
-        icon: "☕",
+        icon: "coffee",
         items: [
           {
             id: "jr-c1",
@@ -636,6 +637,7 @@ export async function getGuestPageData(
       loyaltyPointsPerAmount: restaurantRow.loyalty_points_per_amount ?? 10,
       loyaltyPointsGoal: restaurantRow.loyalty_points_goal ?? 100,
       kitchenPin: ((restaurantRow as Record<string, unknown>).kitchen_pin as string) ?? "1234",
+      enableReservations: (restaurantRow as Record<string, unknown>).enable_reservations !== false,
     },
     categories,
   };
