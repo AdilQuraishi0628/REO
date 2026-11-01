@@ -165,3 +165,7 @@ export function IconMonogramT({ size = 28, className = "" }: { size?: number; cl
 export function IconBotanicalSprig(props: Omit<IconProps, "name">) {
   return <Icon name="flourish" size={44} strokeWidth={1.2} {...props} />;
 }
+
+export function IconAlert(props: Omit<IconProps, "name">) {
+  return <Icon name="alert" {...props} />;
+}

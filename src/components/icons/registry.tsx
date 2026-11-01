@@ -572,6 +572,32 @@ export const ICON_REGISTRY = {
       <circle cx="12" cy="17.5" r=".75" />
     </>
   ),
+
+  volume: (
+    <>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </>
+  ),
+
+  "volume-x": (
+    <>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="22" y1="9" x2="16" y2="15" />
+      <line x1="16" y1="9" x2="22" y2="15" />
+    </>
+  ),
+
+  "bell-off": (
+    <>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      <path d="M18.63 13A17.89 17.89 0 0 1 18 8" />
+      <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14" />
+      <path d="M18 8a6 6 0 0 0-9.33-5" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </>
+  ),
 } as const;
 
 export type RegistryIconName = keyof typeof ICON_REGISTRY;

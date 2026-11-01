@@ -10,7 +10,7 @@ import {
   updateDemoServiceRequestStatus,
   type ServiceRequestStatus,
 } from "@/lib/service-requests-store";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 type RouteContext = {

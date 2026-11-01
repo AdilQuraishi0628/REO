@@ -7,7 +7,7 @@ import {
 } from "@/lib/admin-auth";
 import type { Database } from "@/lib/database.types";
 import { demoOrdersStore, updateDemoOrderStatus } from "@/lib/orders-store";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 type RouteContext = {
   params: Promise<{ restaurantId: string }>;
@@ -61,14 +61,21 @@ async function authorize(restaurantId: string) {
   return { serviceClient: context.serviceClient, context };
 }
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(request: Request, { params }: RouteContext) {
   const { restaurantId } = await params;
   const auth = await authorize(restaurantId);
   if (auth.response) return auth.response;
 
+  const url = new URL(request.url);
+  const requestedOrderId = url.searchParams.get("orderId");
+
   if (auth.isDemo) {
     const liveDemoOrders = demoOrdersStore.filter((o) => o.restaurant_id === restaurantId);
     if (liveDemoOrders.length > 0) {
+      if (requestedOrderId) {
+        const single = liveDemoOrders.find((o) => o.id === requestedOrderId);
+        return NextResponse.json({ order: single ?? null });
+      }
       return NextResponse.json({ orders: liveDemoOrders });
     }
     const isJuniper = restaurantId.endsWith("0001");
@@ -87,6 +94,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
             notes: "Please bring drinks first. Extra napkins.",
             created_at: new Date(Date.now() - 4 * 60_000).toISOString(),
             updated_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+            status_updated_at: new Date(Date.now() - 4 * 60_000).toISOString(),
             items: [
               {
                 id: "item-1",
@@ -123,6 +131,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
             notes: null,
             created_at: new Date(Date.now() - 14 * 60_000).toISOString(),
             updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+            status_updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
             items: [
               {
                 id: "item-3",
@@ -162,6 +171,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
               notes: "Make chai extra kadak",
               created_at: new Date(Date.now() - 3 * 60_000).toISOString(),
               updated_at: new Date(Date.now() - 3 * 60_000).toISOString(),
+              status_updated_at: new Date(Date.now() - 3 * 60_000).toISOString(),
               items: [
                 {
                   id: "item-c1",
@@ -200,6 +210,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
               notes: "Family dining. Serve starters promptly.",
               created_at: new Date(Date.now() - 5 * 60_000).toISOString(),
               updated_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+              status_updated_at: new Date(Date.now() - 5 * 60_000).toISOString(),
               items: [
                 {
                   id: "item-r1",
@@ -227,16 +238,84 @@ export async function GET(_request: Request, { params }: RouteContext) {
             },
           ];
 
+    if (requestedOrderId) {
+      const single = demoOrders.find((o) => o.id === requestedOrderId);
+      return NextResponse.json({ order: single ?? null });
+    }
+
     return NextResponse.json({ orders: demoOrders });
   }
 
   const client = auth.serviceClient!;
-  const { data: orders, error: ordersError } = await client
+
+  if (requestedOrderId) {
+    if (!uuidPattern.test(requestedOrderId)) {
+      return NextResponse.json({ error: "Invalid order ID." }, { status: 400 });
+    }
+    let { data: order, error: orderErr } = await client
+      .from("orders")
+      .select("id, restaurant_id, table_id, table_number, customer_phone, status, total_amount, notes, created_at, updated_at, status_updated_at")
+      .eq("restaurant_id", restaurantId)
+      .eq("id", requestedOrderId)
+      .maybeSingle();
+
+    if (orderErr && (orderErr.message.includes("status_updated_at") || orderErr.code === "42703")) {
+      const fallback = await client
+        .from("orders")
+        .select("id, restaurant_id, table_id, table_number, customer_phone, status, total_amount, notes, created_at, updated_at")
+        .eq("restaurant_id", restaurantId)
+        .eq("id", requestedOrderId)
+        .maybeSingle();
+      order = fallback.data
+        ? ({ ...fallback.data, status_updated_at: fallback.data.updated_at || fallback.data.created_at } as unknown as typeof order)
+        : null;
+      orderErr = fallback.error;
+    }
+
+    if (orderErr) {
+      console.error("Could not fetch single kitchen order:", orderErr.message);
+      return NextResponse.json({ error: "Could not fetch order." }, { status: 500 });
+    }
+    if (!order) {
+      return NextResponse.json({ order: null });
+    }
+
+    const { data: items } = await client
+      .from("order_items")
+      .select("id, order_id, menu_item_id, item_name, quantity, unit_price, total_price, special_instructions, created_at")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true });
+
+    return NextResponse.json({
+      order: {
+        ...order,
+        status_updated_at: order.status_updated_at || order.updated_at || order.created_at,
+        items: items ?? [],
+      },
+    });
+  }
+
+  let { data: orders, error: ordersError } = await client
     .from("orders")
-    .select("id, restaurant_id, table_id, table_number, customer_phone, status, total_amount, notes, created_at, updated_at")
+    .select("id, restaurant_id, table_id, table_number, customer_phone, status, total_amount, notes, created_at, updated_at, status_updated_at")
     .eq("restaurant_id", restaurantId)
     .order("created_at", { ascending: false })
     .limit(100);
+
+  if (ordersError && (ordersError.message.includes("status_updated_at") || ordersError.code === "42703")) {
+    const fallback = await client
+      .from("orders")
+      .select("id, restaurant_id, table_id, table_number, customer_phone, status, total_amount, notes, created_at, updated_at")
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    orders = (fallback.data ?? []).map((o) => ({
+      ...o,
+      status_updated_at: o.updated_at || o.created_at,
+    })) as unknown as typeof orders;
+    ordersError = fallback.error;
+  }
+
   if (ordersError) {
     console.error("Could not load kitchen orders:", ordersError.message);
     return NextResponse.json(
@@ -268,6 +347,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   return NextResponse.json({
     orders: (orders ?? []).map((order) => ({
       ...order,
+      status_updated_at: order.status_updated_at || order.updated_at || order.created_at,
       items: itemsByOrderId.get(order.id) ?? [],
     })),
   });
@@ -300,6 +380,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     typeof input.status === "string"
       ? validStatuses.find((status) => status === input.status) ?? null
       : null;
+  const now = new Date().toISOString();
   if (auth.isDemo) {
     if (nextStatus) {
       updateDemoOrderStatus(orderId, nextStatus);
@@ -308,7 +389,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       order: {
         id: orderId,
         status: nextStatus || "preparing",
-        updated_at: new Date().toISOString(),
+        updated_at: now,
+        status_updated_at: now,
       },
     });
   }
@@ -344,14 +426,37 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     );
   }
 
-  const { data, error } = await client
+  let { data, error } = await client
     .from("orders")
-    .update({ status: nextStatus, updated_at: new Date().toISOString() })
+    .update({
+      status: nextStatus,
+      updated_at: now,
+      status_updated_at: now,
+    })
     .eq("restaurant_id", restaurantId)
     .eq("id", orderId)
     .eq("status", existingOrder.status)
-    .select("id, status, updated_at")
+    .select("id, status, updated_at, status_updated_at")
     .maybeSingle();
+
+  if (error && (error.message.includes("status_updated_at") || error.code === "42703")) {
+    const fallback = await client
+      .from("orders")
+      .update({
+        status: nextStatus,
+        updated_at: now,
+      })
+      .eq("restaurant_id", restaurantId)
+      .eq("id", orderId)
+      .eq("status", existingOrder.status)
+      .select("id, status, updated_at")
+      .maybeSingle();
+    data = fallback.data
+      ? ({ ...fallback.data, status_updated_at: fallback.data.updated_at } as unknown as typeof data)
+      : null;
+    error = fallback.error;
+  }
+
   if (error) {
     console.error("Could not update kitchen order:", error.message);
     return NextResponse.json({ error: "Could not update this order." }, { status: 500 });

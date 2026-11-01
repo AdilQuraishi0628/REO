@@ -17,6 +17,7 @@ export const ICON_ALIASES: Record<string, RegistryIconName> = {
   "nav.admin": "settings",
   "nav.kitchen": "clock",
   "nav.qr": "qr",
+  qrcode: "qr",
   "nav.analytics": "analytics",
   "nav.loyalty": "loyalty",
   "nav.feedback": "star",
@@ -40,6 +41,12 @@ export const ICON_ALIASES: Record<string, RegistryIconName> = {
   "action.view": "eye",
   "action.save": "check",
   "action.call": "phone",
+  "action.sound": "volume",
+  "action.mute": "volume-x",
+  sound: "volume",
+  mute: "volume-x",
+  "volume-2": "volume",
+  "volume-x": "volume-x",
 
   /* Statuses */
   "status.pending": "bell",

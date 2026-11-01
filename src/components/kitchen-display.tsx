@@ -1,18 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Database } from "@/lib/database.types";
+import {
+  useRealtimeTable,
+  type RealtimeConnectionStatus,
+} from "@/hooks/use-realtime-table";
+import {
+  getSoundPreference,
+  setSoundPreference,
+  playOrderAlertChime,
+} from "@/lib/kitchen-sound";
 import {
   Icon,
   IconBell,
   IconClock,
   IconServed,
-  IconTable,
   IconOrder,
   IconSettings,
-  IconMonogramT,
 } from "@/components/icons";
 
 type RestaurantOption = {
@@ -24,24 +30,16 @@ type KitchenOrder = Database["public"]["Tables"]["orders"]["Row"] & {
   items: Database["public"]["Tables"]["order_items"]["Row"][];
 };
 
-type Filter = "all" | "pending" | "preparing" | "ready";
+type Filter = "all" | "pending" | "preparing" | "ready" | "served";
 type Status = KitchenOrder["status"];
 
 const filters: { id: Filter; label: string }[] = [
-  { id: "all", label: "All Orders" },
+  { id: "all", label: "All Active" },
   { id: "pending", label: "New / Pending" },
   { id: "preparing", label: "Preparing" },
   { id: "ready", label: "Ready to Serve" },
+  { id: "served", label: "Served History" },
 ];
-
-function elapsedTime(createdAt: string, now: number) {
-  const minutes = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 60_000));
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes ? `${hours}h ${remainingMinutes}m ago` : `${hours}h ago`;
-}
 
 function currency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -58,6 +56,30 @@ function nextStatus(status: Status): Status | null {
   return null;
 }
 
+/**
+ * Computes per-order timer duration in the current status ("Preparing · 4 min")
+ */
+function formatStatusDuration(order: KitchenOrder, now: number): string {
+  const timestamp = order.status_updated_at || order.updated_at || order.created_at;
+  const minutes = Math.max(0, Math.floor((now - new Date(timestamp).getTime()) / 60_000));
+  const durationText =
+    minutes < 1
+      ? "Just now"
+      : minutes < 60
+        ? `${minutes} min`
+        : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+
+  const statusLabels: Record<Status, string> = {
+    pending: "New",
+    preparing: "Preparing",
+    ready: "Ready",
+    served: "Served",
+    cancelled: "Cancelled",
+  };
+  const label = statusLabels[order.status] ?? order.status;
+  return `${label} · ${durationText}`;
+}
+
 type ServiceRequest = {
   id: string;
   restaurant_id: string;
@@ -67,6 +89,12 @@ type ServiceRequest = {
   status: "pending" | "acknowledged" | "completed";
   created_at: string;
   updated_at: string;
+};
+
+type ToastMessage = {
+  id: string;
+  type: "error" | "info" | "success";
+  text: string;
 };
 
 export default function KitchenDisplay({
@@ -79,166 +107,231 @@ export default function KitchenDisplay({
   isStaffSession?: boolean;
 }) {
   const [restaurantId, setRestaurantId] = useState(initialRestaurantId);
-  const [orders, setOrders] = useState<KitchenOrder[]>([]);
-  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
-  const [isLoading, setIsLoading] = useState(true);
   const [busyOrderId, setBusyOrderId] = useState("");
   const [busyRequestId, setBusyRequestId] = useState("");
-  const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now());
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
-  const [bellRinging, setBellRinging] = useState(false);
-  const knownOrderIdsRef = useRef<Set<string>>(new Set());
-  const isFirstLoadRef = useRef(true);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  const loadOrders = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/kitchen/${restaurantId}/orders`, {
-        cache: "no-store",
-      });
-      const result: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        const message =
-          typeof result === "object" &&
-          result !== null &&
-          "error" in result &&
-          typeof result.error === "string"
-            ? result.error
-            : "Could not load kitchen orders.";
-        throw new Error(message);
-      }
-      if (
-        typeof result !== "object" ||
-        result === null ||
-        !("orders" in result) ||
-        !Array.isArray(result.orders)
-      ) {
-        throw new Error("The kitchen returned an invalid order list.");
-      }
-      const freshOrders = result.orders as KitchenOrder[];
-      if (!isFirstLoadRef.current) {
-        const newlyArrived = freshOrders.filter((o) => !knownOrderIdsRef.current.has(o.id));
-        if (newlyArrived.length > 0) {
-          const freshSet = new Set(newlyArrived.map((o) => o.id));
-          setNewOrderIds(freshSet);
-          setBellRinging(true);
-          setTimeout(() => setBellRinging(false), 500);
-          setTimeout(() => setNewOrderIds(new Set()), 2000);
-        }
-      } else {
-        isFirstLoadRef.current = false;
-      }
-      knownOrderIdsRef.current = new Set(freshOrders.map((o) => o.id));
-      setOrders(freshOrders);
-      setError("");
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load kitchen orders.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [restaurantId]);
-
-  const loadServiceRequests = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/kitchen/${restaurantId}/service-requests`, {
-        cache: "no-store",
-      });
-      const result: unknown = await response.json().catch(() => null);
-      if (response.ok && typeof result === "object" && result !== null && "requests" in result) {
-        setServiceRequests((result as { requests: ServiceRequest[] }).requests);
-      }
-    } catch (err) {
-      console.warn("Could not load service requests:", err);
-    }
-  }, [restaurantId]);
-
+  // Initialize sound preference from localStorage
   useEffect(() => {
-    setIsLoading(true);
-    void loadOrders();
-    void loadServiceRequests();
+    setSoundEnabled(getSoundPreference());
+  }, []);
 
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) {
-      // In demo / unconfigured mode, use fast 3-second polling
-      const pollInterval = window.setInterval(() => {
-        void loadServiceRequests();
-        void loadOrders();
-      }, 3_000);
-
-      return () => {
-        window.clearInterval(pollInterval);
-      };
-    }
-
-    const orderChannel = supabase
-      .channel(`kitchen-orders-${restaurantId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => void loadOrders(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "service_requests",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => void loadServiceRequests(),
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setError("Live updates are unavailable. Reload the page to check for new orders.");
-        }
-      });
-
-    // Also poll every 15s as fallback in live mode
-    const pollInterval = window.setInterval(() => {
-      void loadServiceRequests();
-      void loadOrders();
-    }, 15_000);
-
-    return () => {
-      window.clearInterval(pollInterval);
-      void supabase.removeChannel(orderChannel);
-    };
-  }, [loadOrders, loadServiceRequests, restaurantId]);
-
+  // Timer: Tick locally every 30s to update live duration badges and clock
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const visibleOrders = useMemo(
-    () => orders.filter((order) => filter === "all" || order.status === filter),
-    [filter, orders],
-  );
+  // Auto-dismiss error toasts after 6s
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = useCallback((text: string, type: "error" | "info" | "success" = "error") => {
+    setToast({ id: String(Date.now()), text, type });
+  }, []);
+
+  // 1. Fetch function for orders
+  const loadOrders = useCallback(async (): Promise<KitchenOrder[]> => {
+    const response = await fetch(`/api/kitchen/${restaurantId}/orders`, {
+      cache: "no-store",
+    });
+    const result: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message =
+        typeof result === "object" &&
+        result !== null &&
+        "error" in result &&
+        typeof result.error === "string"
+          ? result.error
+          : "Could not load kitchen orders.";
+      throw new Error(message);
+    }
+    if (
+      typeof result !== "object" ||
+      result === null ||
+      !("orders" in result) ||
+      !Array.isArray(result.orders)
+    ) {
+      throw new Error("Invalid kitchen orders response from server.");
+    }
+    return result.orders as KitchenOrder[];
+  }, [restaurantId]);
+
+  // 2. Fetch function for service requests
+  const loadServiceRequests = useCallback(async (): Promise<ServiceRequest[]> => {
+    const response = await fetch(`/api/kitchen/${restaurantId}/service-requests`, {
+      cache: "no-store",
+    });
+    const result: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message =
+        typeof result === "object" &&
+        result !== null &&
+        "error" in result &&
+        typeof result.error === "string"
+          ? result.error
+          : "Could not load service requests.";
+      throw new Error(message);
+    }
+    if (
+      typeof result !== "object" ||
+      result === null ||
+      !("requests" in result) ||
+      !Array.isArray(result.requests)
+    ) {
+      return [];
+    }
+    return result.requests as ServiceRequest[];
+  }, [restaurantId]);
+
+  // 3. Realtime orders subscription via useRealtimeTable
+  const {
+    data: orders,
+    setData: setOrders,
+    status: ordersStatus,
+    isLoading: isOrdersLoading,
+    error: ordersError,
+    refetch: refetchOrders,
+  } = useRealtimeTable<KitchenOrder>({
+    table: "orders",
+    restaurantId,
+    fetchData: loadOrders,
+    transformInsert: async (rawOrder) => {
+      // If the incoming order row doesn't have order_items attached, fetch this single order with items
+      try {
+        const response = await fetch(
+          `/api/kitchen/${restaurantId}/orders?orderId=${rawOrder.id}`,
+          { cache: "no-store" },
+        );
+        if (response.ok) {
+          const json = await response.json().catch(() => null);
+          if (json && json.order) {
+            return json.order as KitchenOrder;
+          }
+        }
+      } catch (err) {
+        console.warn("[Kitchen] Single order enrichment error:", err);
+      }
+      return {
+        ...rawOrder,
+        items: [],
+      } as unknown as KitchenOrder;
+    },
+    onInsert: (newOrder) => {
+      // Highlight card with subtle entrance animation
+      setNewOrderIds((prev) => new Set([...prev, newOrder.id]));
+      setTimeout(() => {
+        setNewOrderIds((prev) => {
+          const next = new Set(prev);
+          next.delete(newOrder.id);
+          return next;
+        });
+      }, 5_000);
+
+      // Play alert chime if enabled
+      if (getSoundPreference()) {
+        void playOrderAlertChime();
+      }
+    },
+  });
+
+  // 4. Realtime service requests subscription via useRealtimeTable
+  const {
+    data: serviceRequests,
+    setData: setServiceRequests,
+    status: serviceRequestsStatus,
+    refetch: refetchServiceRequests,
+  } = useRealtimeTable<ServiceRequest>({
+    table: "service_requests",
+    restaurantId,
+    fetchData: loadServiceRequests,
+    onInsert: () => {
+      if (getSoundPreference()) {
+        void playOrderAlertChime();
+      }
+    },
+  });
+
+  // Derive unified connection status
+  const connectionStatus: RealtimeConnectionStatus = useMemo(() => {
+    if (ordersStatus === "offline" || serviceRequestsStatus === "offline") return "offline";
+    if (ordersStatus === "reconnecting" || serviceRequestsStatus === "reconnecting")
+      return "reconnecting";
+    if (ordersStatus === "live" || serviceRequestsStatus === "live") return "live";
+    return "connecting";
+  }, [ordersStatus, serviceRequestsStatus]);
+
+  // Toggle sound alert
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setSoundPreference(next);
+    if (next) {
+      void playOrderAlertChime();
+    }
+  };
+
+  // Visible orders filtered by status
+  const visibleOrders = useMemo(() => {
+    if (filter === "all") {
+      // "All Active": show pending, preparing, and ready orders
+      return orders.filter((o) => ["pending", "preparing", "ready"].includes(o.status));
+    }
+    return orders.filter((o) => o.status === filter);
+  }, [filter, orders]);
+
+  // Order summary counts
   const counts = useMemo(
     () => ({
-      pending: orders.filter((order) => order.status === "pending").length,
-      preparing: orders.filter((order) => order.status === "preparing").length,
-      ready: orders.filter((order) => order.status === "ready").length,
+      pending: orders.filter((o) => o.status === "pending").length,
+      preparing: orders.filter((o) => o.status === "preparing").length,
+      ready: orders.filter((o) => o.status === "ready").length,
+      served: orders.filter((o) => o.status === "served").length,
     }),
     [orders],
   );
 
-  async function changeStatus(order: KitchenOrder, status: Status) {
+  // Active table calls (pending or acknowledged)
+  const pendingRequests = useMemo(
+    () => serviceRequests.filter((r) => r.status === "pending" || r.status === "acknowledged"),
+    [serviceRequests],
+  );
+
+  // Optimistic Order Status Update with Rollback on error
+  async function changeStatus(order: KitchenOrder, targetStatus: Status) {
+    const previousOrders = orders;
     setBusyOrderId(order.id);
-    setError("");
+
+    // Optimistically update local state immediately
+    const nowIso = new Date().toISOString();
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === order.id
+          ? {
+              ...o,
+              status: targetStatus,
+              status_updated_at: nowIso,
+              updated_at: nowIso,
+            }
+          : o,
+      ),
+    );
+
     try {
       const response = await fetch(`/api/kitchen/${restaurantId}/orders`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, status }),
+        body: JSON.stringify({ orderId: order.id, status: targetStatus }),
       });
       const result: unknown = await response.json().catch(() => null);
+
       if (!response.ok) {
         const message =
           typeof result === "object" &&
@@ -249,36 +342,68 @@ export default function KitchenDisplay({
             : "Could not update order status.";
         throw new Error(message);
       }
-      await loadOrders();
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Could not update order status.");
+      // Revert local state on error
+      setOrders(previousOrders);
+      showToast(
+        updateError instanceof Error
+          ? updateError.message
+          : "Could not update order status. Rolled back.",
+        "error",
+      );
     } finally {
       setBusyOrderId("");
     }
   }
 
-  async function updateServiceStatus(requestId: string, status: "acknowledged" | "completed") {
+  // Optimistic Service Request Update with Rollback on error
+  async function updateServiceStatus(requestId: string, targetStatus: "acknowledged" | "completed") {
+    const previousRequests = serviceRequests;
     setBusyRequestId(requestId);
+
+    // Optimistically update local state immediately
+    const nowIso = new Date().toISOString();
+    setServiceRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: targetStatus,
+              updated_at: nowIso,
+            }
+          : r,
+      ),
+    );
+
     try {
       const response = await fetch(`/api/kitchen/${restaurantId}/service-requests`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, status }),
+        body: JSON.stringify({ requestId, status: targetStatus }),
       });
-      if (response.ok) {
-        await loadServiceRequests();
+      const result: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message =
+          typeof result === "object" &&
+          result !== null &&
+          "error" in result &&
+          typeof result.error === "string"
+            ? result.error
+            : "Could not update service request.";
+        throw new Error(message);
       }
     } catch (err) {
-      console.warn("Could not update service request:", err);
+      // Revert local state on error
+      setServiceRequests(previousRequests);
+      showToast(
+        err instanceof Error ? err.message : "Could not update table call. Rolled back.",
+        "error",
+      );
     } finally {
       setBusyRequestId("");
     }
   }
-
-  const pendingRequests = useMemo(
-    () => serviceRequests.filter((r) => r.status === "pending" || r.status === "acknowledged"),
-    [serviceRequests],
-  );
 
   const clockString = useMemo(() => {
     return new Intl.DateTimeFormat("en-IN", {
@@ -291,19 +416,72 @@ export default function KitchenDisplay({
 
   return (
     <main className="kitchen-shell">
-      {/* 1. KDS Header: Brand Badge, Eyebrow, Title, Live Clock, and Admin Link */}
+      {/* Toast Notification Banner (Floating top alert for errors & optimistic rollback) */}
+      {toast && (
+        <div
+          aria-live="assertive"
+          className={`kitchen-toast-banner ${toast.type}`}
+          role="alert"
+        >
+          <div className="kitchen-toast-content">
+            <Icon name={toast.type === "error" ? "alert" : "check"} size={18} />
+            <span>{toast.text}</span>
+          </div>
+          <button
+            aria-label="Dismiss message"
+            className="kitchen-toast-close"
+            onClick={() => setToast(null)}
+            type="button"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* 1. KDS Header: Brand Badge, Eyebrow, Title, Live Clock, Live Indicator, Sound Toggle, Admin Link */}
       <header className="kitchen-header">
         <div className="kitchen-header-left">
           <Link className="kitchen-brand-mark" href="/" title="TableTap Home">
-            <span className="brand-monogram-t">T</span>
+            <Icon name="monogram-t" size={20} />
           </Link>
           <div>
-            <span className="eyebrow">TABLETAP · STAFF KDS</span>
+            <span className="eyebrow">TableTap · Staff kitchen display</span>
             <h1 className="kitchen-heading">Kitchen Display</h1>
           </div>
         </div>
 
         <div className="kitchen-header-actions">
+          {/* Live WebSocket Status Indicator */}
+          <div
+            aria-live="polite"
+            className={`kitchen-live-pill status-${connectionStatus}`}
+            title={`Realtime updates: ${connectionStatus}`}
+          >
+            <span className={`live-dot ${connectionStatus}`} />
+            <span className="live-pill-label">
+              {connectionStatus === "live"
+                ? "Live"
+                : connectionStatus === "reconnecting"
+                  ? "Reconnecting…"
+                  : connectionStatus === "connecting"
+                    ? "Connecting…"
+                    : "Offline"}
+            </span>
+          </div>
+
+          {/* Audio Chime Toggle Button */}
+          <button
+            aria-label={soundEnabled ? "Mute order alert chime" : "Unmute order alert chime"}
+            className={`kitchen-sound-btn ${soundEnabled ? "sound-active" : "sound-muted"}`}
+            onClick={toggleSound}
+            title={soundEnabled ? "Chime enabled on new orders (click to mute)" : "Chime muted (click to unmute)"}
+            type="button"
+          >
+            <Icon name={soundEnabled ? "volume" : "volume-x"} size={16} />
+            <span>{soundEnabled ? "Sound on" : "Muted"}</span>
+          </button>
+
+          {/* Raipur Local Clock */}
           <div className="kitchen-clock-pill">
             <span className="live-clock-dot" />
             <span className="clock-city">Raipur</span>
@@ -311,6 +489,7 @@ export default function KitchenDisplay({
             <strong className="clock-digits">{clockString}</strong>
           </div>
 
+          {/* Multi-Restaurant Selector */}
           {restaurants.length > 1 && !isStaffSession && (
             <label className="kitchen-restaurant-selector">
               <span className="sr-only">Restaurant</span>
@@ -319,12 +498,15 @@ export default function KitchenDisplay({
                 value={restaurantId}
               >
                 {restaurants.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
                 ))}
               </select>
             </label>
           )}
 
+          {/* Staff Exit or Admin Navigation */}
           {isStaffSession ? (
             <button
               className="kitchen-admin-btn"
@@ -332,8 +514,8 @@ export default function KitchenDisplay({
                 await fetch("/api/auth/logout", { method: "POST" });
                 window.location.assign("/admin/login?tab=kitchen");
               }}
-              type="button"
               title="Sign out kitchen station"
+              type="button"
             >
               <Icon name="logout" size={15} />
               <span>Staff Exit</span>
@@ -373,9 +555,11 @@ export default function KitchenDisplay({
           <strong>{counts.ready}</strong>
         </div>
 
-        <div className={`kitchen-count service-calls ${pendingRequests.length ? "active-alert" : ""}`}>
+        <div
+          className={`kitchen-count service-calls ${pendingRequests.length ? "active-alert" : ""}`}
+        >
           <div className="count-label-row">
-            <IconBell size={16} className={bellRinging ? "kitchen-bell-ringing" : ""} />
+            <IconBell size={16} />
             <span>Table Calls</span>
           </div>
           <strong>{pendingRequests.length}</strong>
@@ -392,7 +576,7 @@ export default function KitchenDisplay({
           </div>
           <button
             className="service-refresh-btn"
-            onClick={() => void loadServiceRequests()}
+            onClick={() => void refetchServiceRequests()}
             type="button"
           >
             Refresh calls ⟳
@@ -401,7 +585,7 @@ export default function KitchenDisplay({
 
         {pendingRequests.length === 0 ? (
           <div className="service-requests-empty">
-            <IconBell size={28} className="empty-bell-icon" />
+            <IconBell className="empty-bell-icon" size={28} />
             <p>No active table calls. All dining tables are attended to.</p>
           </div>
         ) : (
@@ -419,11 +603,29 @@ export default function KitchenDisplay({
                       {isWaiter ? <IconBell size={16} /> : <IconOrder size={16} />}
                       <strong>{isWaiter ? "Call Waiter" : "Request Bill"}</strong>
                     </div>
-                    <span className="service-time">{elapsedTime(req.created_at, now)}</span>
+                    <span className="service-time">
+                      {formatStatusDuration(
+                        {
+                          id: req.id,
+                          restaurant_id: req.restaurant_id,
+                          table_id: req.table_id,
+                          table_number: req.table_number,
+                          customer_phone: null,
+                          status: "pending",
+                          total_amount: 0,
+                          notes: null,
+                          created_at: req.created_at,
+                          updated_at: req.updated_at,
+                          status_updated_at: req.updated_at,
+                          items: [],
+                        },
+                        now,
+                      )}
+                    </span>
                   </div>
 
                   <div className="service-card-table">
-                    <span>Table</span>
+                    <span>Dining Table</span>
                     <strong>{req.table_number}</strong>
                   </div>
 
@@ -451,7 +653,7 @@ export default function KitchenDisplay({
                         onClick={() => void updateServiceStatus(req.id, "acknowledged")}
                         type="button"
                       >
-                        {busyRequestId === req.id ? "..." : "Acknowledge"}
+                        {busyRequestId === req.id ? "Saving…" : "Acknowledge"}
                       </button>
                     )}
                     <button
@@ -461,7 +663,7 @@ export default function KitchenDisplay({
                       type="button"
                     >
                       {busyRequestId === req.id ? (
-                        "..."
+                        "Saving…"
                       ) : (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                           <Icon name="check" size={13} />
@@ -488,26 +690,58 @@ export default function KitchenDisplay({
             type="button"
           >
             {item.label}
+            {item.id === "pending" && counts.pending > 0 && (
+              <span className="filter-count-badge pending">{counts.pending}</span>
+            )}
+            {item.id === "preparing" && counts.preparing > 0 && (
+              <span className="filter-count-badge preparing">{counts.preparing}</span>
+            )}
+            {item.id === "ready" && counts.ready > 0 && (
+              <span className="filter-count-badge ready">{counts.ready}</span>
+            )}
           </button>
         ))}
-        <span aria-live="polite" className="kitchen-live-indicator">
-          <i /> Live updates on
-        </span>
+
+        <div className="kitchen-filters-right">
+          <button
+            className="service-refresh-btn"
+            onClick={() => void refetchOrders()}
+            title="Refresh order tickets"
+            type="button"
+          >
+            Refresh orders ⟳
+          </button>
+        </div>
       </nav>
 
       {/* 5. Orders Board */}
-      {error && <p aria-live="assertive" className="admin-alert error">{error}</p>}
-      {isLoading ? (
-        <p className="admin-loading">Loading kitchen orders...</p>
+      {ordersError && (
+        <p aria-live="assertive" className="admin-alert error">
+          {ordersError}
+        </p>
+      )}
+
+      {isOrdersLoading ? (
+        <p className="admin-loading">Loading kitchen orders…</p>
       ) : visibleOrders.length ? (
         <section aria-label="Orders" className="kitchen-order-grid">
           {visibleOrders.map((order) => {
             const followingStatus = nextStatus(order.status);
             const isNew = newOrderIds.has(order.id);
-            const isUrgent = (now - new Date(order.created_at).getTime()) > 15 * 60 * 1000;
+            const isUrgent =
+              order.status === "pending"
+                ? now - new Date(order.created_at).getTime() > 10 * 60 * 1000
+                : order.status === "preparing"
+                  ? now -
+                      new Date(
+                        order.status_updated_at || order.updated_at || order.created_at,
+                      ).getTime() >
+                    25 * 60 * 1000
+                  : false;
+
             return (
               <article
-                className={`kitchen-order-card status-${order.status} ${isNew ? "kitchen-new-order-card" : ""}`}
+                className={`kitchen-order-card status-${order.status} ${isNew ? "kitchen-new-order-card" : ""} ${isUrgent ? "kitchen-order-urgent" : ""}`}
                 key={order.id}
               >
                 <header className="kitchen-order-top">
@@ -516,9 +750,16 @@ export default function KitchenDisplay({
                     <strong>{order.table_number}</strong>
                   </div>
                   <div className="kitchen-order-meta">
-                    <time dateTime={order.created_at} className={isUrgent ? "timer-urgent" : ""}>
-                      {elapsedTime(order.created_at, now)}
-                    </time>
+                    {/* Per-order live duration in current status: "Preparing · 4 min" */}
+                    <span
+                      className={`kitchen-status-timer ${isUrgent ? "timer-urgent" : ""}`}
+                      title={`Status duration since last change: ${order.status_updated_at || order.updated_at}`}
+                    >
+                      <IconClock size={12} />
+                      <time>{formatStatusDuration(order, now)}</time>
+                    </span>
+
+                    {/* Accessible colored status badge */}
                     <span className={`kitchen-status status-badge-${order.status}`}>
                       {order.status}
                     </span>
@@ -560,7 +801,7 @@ export default function KitchenDisplay({
                         type="button"
                       >
                         {busyOrderId === order.id ? (
-                          "Saving..."
+                          "Saving…"
                         ) : followingStatus === "preparing" ? (
                           <>
                             <IconClock size={15} />
@@ -597,9 +838,15 @@ export default function KitchenDisplay({
         </section>
       ) : (
         <section className="kitchen-empty">
-          <IconServed size={36} className="empty-kds-icon" />
-          <h2>{filter === "all" ? "No orders active" : `No ${filter} orders`}</h2>
-          <p>Orders submitted by dining guests will appear here in real-time.</p>
+          <IconServed className="empty-kds-icon" size={36} />
+          <h2>
+            {filter === "all"
+              ? "No active orders"
+              : filter === "served"
+                ? "No served orders"
+                : `No ${filter} orders`}
+          </h2>
+          <p>No orders here. New ones appear on their own.</p>
         </section>
       )}
     </main>
