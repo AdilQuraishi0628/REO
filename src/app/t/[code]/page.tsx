@@ -1,16 +1,39 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import GuestExperience from "@/components/guest-experience";
+import TableGuestExperience from "@/components/table-guest-experience";
 import { getTableGuestPageData } from "@/lib/restaurant-data";
 
 type TableGuestPageProps = {
   params: Promise<{ code: string }>;
 };
 
+export async function generateMetadata({ params }: TableGuestPageProps): Promise<Metadata> {
+  const { code } = await params;
+  if (!/^[A-Za-z0-9_-]{3,64}$/.test(code)) return { title: "TableTap Menu" };
+
+  const data = await getTableGuestPageData(code);
+  if (!data) return { title: "TableTap Menu" };
+  const { restaurant, tableLabel } = data;
+
+  return {
+    title: `${restaurant.name} · ${tableLabel || "Table Menu"} | TableTap`,
+    description:
+      restaurant.tagline ||
+      restaurant.description ||
+      `Digital table ordering, live menu, and instant service at ${restaurant.name}, Raipur.`,
+    openGraph: {
+      title: `${restaurant.name} · Table Menu`,
+      description: restaurant.description,
+      images: restaurant.heroImage ? [{ url: restaurant.heroImage }] : undefined,
+    },
+  };
+}
+
 export default async function TableGuestPage({ params }: TableGuestPageProps) {
   const { code } = await params;
-  if (!/^[A-Za-z0-9_-]{8,32}$/.test(code)) notFound();
+  if (!/^[A-Za-z0-9_-]{3,64}$/.test(code)) notFound();
 
   const data = await getTableGuestPageData(code);
   if (!data) notFound();
-  return <GuestExperience {...data} />;
+  return <TableGuestExperience {...data} />;
 }

@@ -1,0 +1,784 @@
+/* ==========================================================================
+   TableTap Premium Motion System
+   Calm, soft, unhurried motion reflecting a high-end specialty café.
+   Adheres to strict motion tokens, hardware acceleration, and prefers-reduced-motion.
+   ========================================================================== */
+
+:root {
+  /* Motion Duration Tokens */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 400ms;
+  --dur-page: 500ms;
+
+  /* Easing Tokens */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Distance Tokens */
+  --dist-lift: -2px;
+  --dist-rise: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Keyframes (Hardware Accelerated: transform & opacity only)
+   -------------------------------------------------------------------------- */
+
+@keyframes motionFadeRise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--dist-rise, 14px));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motionFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motionFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes motionSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motionSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motionPulseSoft {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes motionSlowPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes motionBellRing {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-8deg);
+  }
+  40% {
+    transform: rotate(8deg);
+  }
+  60% {
+    transform: rotate(-5deg);
+  }
+  80% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes motionGlowRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(114, 47, 55, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(114, 47, 55, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(114, 47, 55, 0);
+  }
+}
+
+@keyframes motionSteamDrift {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-3px);
+    opacity: 0.75;
+  }
+}
+
+@keyframes motionShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes iconLineDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes iconCrossfade {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes motionToastProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes motionNumberRollUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Icon Animation (Opt-In)
+   -------------------------------------------------------------------------- */
+
+.motion-icon-draw path,
+.motion-icon-draw circle,
+.motion-icon-draw rect,
+.motion-icon-draw line,
+.motion-icon-draw polyline,
+.motion-icon-draw polygon {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: iconLineDraw var(--dur-slow, 400ms) var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
+}
+
+.motion-icon-swap {
+  animation: iconCrossfade var(--dur-base, 250ms) var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+/* --------------------------------------------------------------------------
+   Staggered Entrances (Capped at 8 items)
+   -------------------------------------------------------------------------- */
+
+.motion-stagger-1 { animation-delay: 0ms; }
+.motion-stagger-2 { animation-delay: 50ms; }
+.motion-stagger-3 { animation-delay: 100ms; }
+.motion-stagger-4 { animation-delay: 150ms; }
+.motion-stagger-5 { animation-delay: 200ms; }
+.motion-stagger-6 { animation-delay: 250ms; }
+.motion-stagger-7 { animation-delay: 300ms; }
+.motion-stagger-8 { animation-delay: 350ms; }
+
+/* --------------------------------------------------------------------------
+   Entrance Utility Classes
+   -------------------------------------------------------------------------- */
+
+.motion-fade-rise {
+  animation: motionFadeRise var(--dur-slow, 400ms) var(--ease-out) both;
+}
+
+.motion-fade {
+  animation: motionFade var(--dur-base, 250ms) var(--ease-out) both;
+}
+
+.motion-page-enter {
+  animation: motionFadeRise var(--dur-page, 500ms) var(--ease-out) both;
+}
+
+/* --------------------------------------------------------------------------
+   Guest Menu Component Motions
+   -------------------------------------------------------------------------- */
+
+/* Header brand entrance */
+.guest-brand-section {
+  animation: motionFadeRise var(--dur-slow, 400ms) var(--ease-out) both;
+}
+
+/* Category squircle tabs entrance */
+.guest-category-tabs {
+  animation: motionFade var(--dur-base, 250ms) var(--ease-out) both;
+  scroll-behavior: smooth;
+}
+
+/* Category tab indicator and active styling */
+.category-squircle-tab {
+  position: relative;
+  transition: transform var(--dur-fast, 150ms) var(--ease-out),
+              background-color var(--dur-base, 250ms) var(--ease-in-out),
+              color var(--dur-base, 250ms) var(--ease-in-out),
+              border-color var(--dur-base, 250ms) var(--ease-in-out);
+}
+
+.category-squircle-tab:active {
+  transform: scale(0.96);
+}
+
+.category-squircle-tab .tab-icon-wrap {
+  transition: color var(--dur-base, 250ms) var(--ease-in-out),
+              transform var(--dur-base, 250ms) var(--ease-out);
+}
+
+.category-squircle-tab.active .tab-icon-wrap {
+  transform: translateY(-1px);
+}
+
+.category-squircle-tab .tab-active-dot {
+  transition: transform var(--dur-base, 250ms) var(--ease-in-out),
+              opacity var(--dur-base, 250ms) var(--ease-out);
+  animation: motionFadeRise var(--dur-fast, 150ms) var(--ease-out) both;
+}
+
+/* Menu card hover lift & pseudo-element shadow (60fps on lists) */
+.guest-dish-card {
+  position: relative;
+  transition: transform var(--dur-base, 200ms) var(--ease-out);
+  will-change: transform;
+}
+
+.guest-dish-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 6px 18px rgba(114, 47, 55, 0.09), 0 2px 6px rgba(107, 94, 84, 0.05);
+  opacity: 0;
+  transition: opacity var(--dur-base, 200ms) var(--ease-out);
+  pointer-events: none;
+}
+
+.guest-dish-card:hover {
+  transform: translateY(var(--dist-lift, -2px));
+}
+
+.guest-dish-card:hover::after {
+  opacity: 1;
+}
+
+.guest-dish-card:active {
+  transform: scale(0.985);
+  transition-duration: 120ms;
+}
+
+/* Add button morphing to quantity stepper */
+.dish-add-btn {
+  transition: transform var(--dur-fast, 150ms) var(--ease-out),
+              background-color var(--dur-base, 200ms) var(--ease-out),
+              box-shadow var(--dur-base, 200ms) var(--ease-out),
+              opacity var(--dur-fast, 150ms) var(--ease-out);
+}
+
+.dish-add-btn:hover {
+  background-color: var(--theme-primary-hover, #5A252C);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(114, 47, 55, 0.2);
+}
+
+.dish-add-btn:active {
+  transform: scale(0.97);
+}
+
+.dish-stepper {
+  transition: opacity var(--dur-fast, 150ms) var(--ease-out),
+              transform var(--dur-fast, 150ms) var(--ease-out);
+  animation: motionFade var(--dur-fast, 150ms) var(--ease-out);
+}
+
+.dish-stepper .stepper-btn {
+  transition: transform var(--dur-fast, 120ms) var(--ease-out),
+              background-color var(--dur-fast, 150ms) var(--ease-out);
+}
+
+.dish-stepper .stepper-btn:hover {
+  transform: scale(1.08);
+}
+
+.dish-stepper .stepper-btn:active {
+  transform: scale(0.92);
+}
+
+.dish-stepper .stepper-count {
+  animation: motionNumberRollUp var(--dur-fast, 150ms) var(--ease-out);
+}
+
+/* Sticky order bar entry & exit */
+.guest-sticky-bottom-bar {
+  animation: motionSlideUp 350ms var(--ease-out) both;
+}
+
+.dock-bag-pulse {
+  animation: motionPulseSoft 300ms var(--ease-out) forwards;
+}
+
+.dock-order-price {
+  transition: color var(--dur-fast, 150ms) var(--ease-out);
+}
+
+/* Order sheet / drawer backdrop & sheet */
+.guest-modal-backdrop {
+  background: rgba(114, 47, 55, 0.22);
+  backdrop-filter: blur(5px);
+  animation: motionFade var(--dur-base, 250ms) var(--ease-out) both;
+}
+
+.guest-sheet-container {
+  animation: motionSlideUp var(--dur-slow, 350ms) var(--ease-out) both;
+}
+
+/* Empty states */
+.guest-empty-state,
+.kitchen-empty,
+.service-requests-empty {
+  animation: motionFadeRise var(--dur-slow, 400ms) var(--ease-out) both;
+}
+
+.empty-steam-drift {
+  animation: motionSteamDrift 3s ease-in-out infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Kitchen Display Motions
+   -------------------------------------------------------------------------- */
+
+.kitchen-new-order-card {
+  animation: motionFadeRise 350ms var(--ease-out) both,
+             motionGlowRing 1.5s var(--ease-out) 1;
+}
+
+.kitchen-bell-ringing {
+  animation: motionBellRing 500ms var(--ease-out) 1;
+  transform-origin: 50% 10%;
+}
+
+.timer-urgent {
+  color: var(--theme-primary, #722F37);
+  animation: motionSlowPulse 2.4s ease-in-out infinite;
+}
+
+/* Moving card between columns */
+.kitchen-order-card {
+  transition: transform var(--dur-base, 250ms) var(--ease-out),
+              opacity var(--dur-base, 250ms) var(--ease-out),
+              box-shadow var(--dur-base, 250ms) var(--ease-out);
+}
+
+.kitchen-order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(114, 47, 55, 0.08);
+}
+
+.kitchen-count strong {
+  transition: color var(--dur-fast, 150ms) var(--ease-out);
+  animation: motionNumberRollUp var(--dur-fast, 150ms) var(--ease-out);
+}
+
+/* --------------------------------------------------------------------------
+   Admin Dashboard Motions
+   -------------------------------------------------------------------------- */
+
+.admin-nav-menu .nav-menu-btn {
+  position: relative;
+  transition: color var(--dur-base, 250ms) var(--ease-out),
+              background-color var(--dur-base, 250ms) var(--ease-in-out),
+              transform var(--dur-fast, 150ms) var(--ease-out);
+}
+
+.admin-nav-menu .nav-menu-btn .nav-item-icon {
+  transition: color var(--dur-base, 250ms) var(--ease-out),
+              transform var(--dur-base, 250ms) var(--ease-out);
+}
+
+.admin-nav-menu .nav-menu-btn.active .nav-item-icon {
+  transform: scale(1.05);
+}
+
+/* Availability toggle */
+.toggle-switch-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 24px;
+  background: var(--theme-accent-soft, #B7A89A);
+  border-radius: 9999px;
+  cursor: pointer;
+  padding: 2px;
+  border: none;
+  transition: background-color var(--dur-base, 200ms) var(--ease-in-out);
+}
+
+.toggle-switch-track.active {
+  background: var(--theme-primary, #722F37);
+}
+
+.toggle-switch-thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: #F7F1E9;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  transition: transform var(--dur-base, 200ms) var(--ease-in-out);
+}
+
+.toggle-switch-track.active .toggle-switch-thumb {
+  transform: translateX(20px);
+}
+
+/* Admin table row hover & stagger */
+.admin-table tbody tr {
+  transition: background-color var(--dur-fast, 150ms) var(--ease-out);
+}
+
+.admin-table tbody tr:hover {
+  background-color: rgba(232, 220, 198, 0.35);
+}
+
+/* Circular hover backing for icon buttons */
+.row-action-btn,
+.table-action-icon-btn,
+.sheet-close-btn,
+.header-icon-btn {
+  position: relative;
+  transition: transform var(--dur-fast, 150ms) var(--ease-out),
+              color var(--dur-fast, 150ms) var(--ease-out);
+  z-index: 1;
+}
+
+.row-action-btn::before,
+.table-action-icon-btn::before,
+.sheet-close-btn::before,
+.header-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--theme-surface, #E8DCC6);
+  transform: scale(0.82);
+  opacity: 0;
+  transition: transform var(--dur-fast, 150ms) var(--ease-out),
+              opacity var(--dur-fast, 150ms) var(--ease-out);
+  z-index: -1;
+}
+
+.row-action-btn:hover::before,
+.table-action-icon-btn:hover::before,
+.sheet-close-btn:hover::before,
+.header-icon-btn:hover::before {
+  transform: scale(1);
+  opacity: 0.85;
+}
+
+/* --------------------------------------------------------------------------
+   Global Button & Input Interactions
+   -------------------------------------------------------------------------- */
+
+.guest-btn-primary,
+.btn-primary,
+.kitchen-action-btn.primary,
+.admin-save-btn {
+  position: relative;
+  transition: transform var(--dur-base, 200ms) var(--ease-out),
+              background-color var(--dur-base, 200ms) var(--ease-out),
+              box-shadow var(--dur-base, 200ms) var(--ease-out);
+}
+
+.guest-btn-primary:hover,
+.btn-primary:hover,
+.kitchen-action-btn.primary:hover,
+.admin-save-btn:hover {
+  background-color: var(--theme-primary-hover, #5A252C);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px rgba(114, 47, 55, 0.22);
+}
+
+.guest-btn-primary:active,
+.btn-primary:active,
+.kitchen-action-btn.primary:active,
+.admin-save-btn:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 100ms;
+}
+
+.guest-btn-primary:focus-visible,
+.btn-primary:focus-visible,
+.kitchen-action-btn.primary:focus-visible,
+.admin-save-btn:focus-visible {
+  outline: 2px solid var(--theme-primary, #722F37);
+  outline-offset: 2px;
+}
+
+/* Secondary / outline buttons */
+.guest-btn-outline,
+.btn-secondary,
+.kitchen-cancel-btn {
+  transition: background-color var(--dur-base, 200ms) var(--ease-out),
+              color var(--dur-base, 200ms) var(--ease-out),
+              border-color var(--dur-base, 200ms) var(--ease-out);
+}
+
+.guest-btn-outline:hover,
+.btn-secondary:hover,
+.kitchen-cancel-btn:hover {
+  background-color: rgba(232, 220, 198, 0.45);
+}
+
+/* Form input focus ring */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  transition: border-color var(--dur-base, 200ms) var(--ease-out),
+              box-shadow var(--dur-base, 200ms) var(--ease-out);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--theme-primary, #722F37) !important;
+  box-shadow: 0 0 0 3px rgba(114, 47, 55, 0.12) !important;
+  outline: none;
+}
+
+/* Toasts / Notifications */
+.guest-toast-banner,
+.admin-alert {
+  position: relative;
+  overflow: hidden;
+  animation: motionSlideDown var(--dur-slow, 300ms) var(--ease-out) both;
+}
+
+.toast-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.6;
+  width: 100%;
+  transform-origin: left;
+  animation: motionToastProgress 4000ms linear forwards;
+}
+
+/* Skeleton Shimmer */
+.motion-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(232, 220, 198, 0.4) 0%,
+    rgba(247, 241, 233, 0.8) 50%,
+    rgba(232, 220, 198, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  animation: motionShimmer 1.6s ease-in-out infinite;
+}
+
+/* Order timeline status card & progress */
+.guest-order-status-card {
+  background: var(--theme-surface, #E8DCC6);
+  border: 1px solid var(--theme-border, #D9CBB8);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 14px rgba(114, 47, 55, 0.05);
+}
+
+.status-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.status-card-title .status-eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--theme-text-light, #8C7B70);
+  text-transform: uppercase;
+}
+
+.status-card-title h3 {
+  margin: 3px 0 0 0;
+  font-family: var(--serif, serif);
+  font-size: 18px;
+  color: var(--theme-text-primary, #722F37);
+  font-weight: 600;
+}
+
+.status-card-header .status-badge {
+  background: var(--theme-primary, #722F37);
+  color: #F7F1E9;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.order-timeline-track-wrap {
+  position: relative;
+  padding: 8px 10px 4px 10px;
+}
+
+.order-timeline-progress-track {
+  position: relative;
+  height: 3px;
+  background: var(--theme-border, #D9CBB8);
+  border-radius: 9999px;
+  margin-bottom: 14px;
+}
+
+.order-timeline-progress-fill {
+  height: 100%;
+  background: var(--theme-primary, #722F37);
+  transition: width var(--dur-slow, 400ms) var(--ease-out);
+  border-radius: 9999px;
+}
+
+.order-timeline-steps {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--theme-text-secondary, #6B5E54);
+  transition: color var(--dur-base, 250ms) var(--ease-out);
+}
+
+.timeline-step .step-icon-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--theme-surface-light, #F7F1E9);
+  border: 1px solid var(--theme-border, #D9CBB8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-text-secondary, #6B5E54);
+  transition: background-color var(--dur-base, 250ms) var(--ease-out),
+              border-color var(--dur-base, 250ms) var(--ease-out),
+              color var(--dur-base, 250ms) var(--ease-out),
+              transform var(--dur-fast, 150ms) var(--ease-out);
+}
+
+.timeline-step.active {
+  color: var(--theme-text-primary, #722F37);
+  font-weight: 600;
+}
+
+.timeline-step.active .step-icon-circle {
+  background: var(--theme-primary, #722F37);
+  border-color: var(--theme-primary, #722F37);
+  color: #F7F1E9;
+  transform: scale(1.05);
+}
+
+/* Analytics charts & metric cards draw */
+@keyframes chartBarGrow {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.chart-bar-grow {
+  transform-origin: bottom;
+  animation: chartBarGrow 500ms var(--ease-out) both;
+}
+
+.analytics-metric-card {
+  animation: motionFadeRise 400ms var(--ease-out) both;
+}
+
+/* --------------------------------------------------------------------------
+   Accessibility: prefers-reduced-motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .motion-icon-draw path,
+  .motion-icon-draw circle,
+  .motion-icon-draw rect,
+  .motion-icon-draw line,
+  .motion-icon-draw polyline,
+  .motion-icon-draw polygon {
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+
+  .motion-icon-swap {
+    animation: none !important;
+  }
+
+  .dock-bag-pulse,
+  .kitchen-bell-ringing,
+  .timer-urgent,
+  .empty-steam-drift,
+  .motion-skeleton {
+    animation: none !important;
+  }
+}

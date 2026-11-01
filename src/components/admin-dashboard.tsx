@@ -10,21 +10,64 @@ import {
   FeedbackAdminSection,
   LoyaltyAdminSection,
 } from "@/components/admin-insights";
+import {
+  Icon,
+  IconSettings,
+  IconFilter,
+  IconPlates,
+  IconTable,
+  IconStar,
+  IconOrder,
+  IconServed,
+  IconStaff,
+  IconSearch,
+  IconEdit,
+  IconDelete,
+  IconClock,
+  CategoryIcon,
+} from "@/components/icons";
 
-type AdminDashboardData = {
+export type AdminDashboardData = {
   restaurant: {
     id: string;
     slug: string;
     name: string;
     description: string;
+    tagline?: string;
+    address: string;
+    city: string;
+    phone?: string | null;
     hero_image: string;
     logo_url: string | null;
+    wifi_name?: string | null;
     wifi_ssid: string;
     wifi_password: string;
+    enable_wifi?: boolean;
+    enable_call_waiter?: boolean;
+    enable_request_bill?: boolean;
+    enable_menu?: boolean;
+    enable_ordering?: boolean;
+    enable_feedback?: boolean;
+    enable_google_reviews?: boolean;
     google_review_url: string | null;
+    instagram_url?: string | null;
     primary_color: string;
+    secondary_color?: string | null;
+    loyalty_enabled: boolean;
+    loyalty_type?: "stamps" | "points";
+    loyalty_reward_goal: number;
+    loyalty_reward_description?: string | null;
+    loyalty_points_per_amount?: number;
+    loyalty_points_goal?: number;
+    kitchen_pin?: string;
   };
-  categories: { id: string; name: string; sort_order: number }[];
+  categories: {
+    id: string;
+    name: string;
+    sort_order: number;
+    icon?: string | null;
+    image_url?: string | null;
+  }[];
   items: {
     id: string;
     category_id: string;
@@ -32,8 +75,10 @@ type AdminDashboardData = {
     description: string;
     price: number;
     image_url: string | null;
+    dietary_tags: string[];
     is_available: boolean;
     sort_order: number;
+    pricing_variants?: { name: string; price: number }[];
   }[];
   feedback: {
     id: string;
@@ -61,18 +106,119 @@ type AdminDashboardProps = {
   userEmail: string;
 };
 
-type Section = "overview" | "analytics" | "feedback" | "loyalty" | "menu" | "tables" | "settings" | "links" | "account";
+type Section =
+  | "profile"
+  | "features"
+  | "menu"
+  | "tables"
+  | "loyalty"
+  | "reviews"
+  | "overview"
+  | "account";
 
-const navItems: { id: Section; label: string; icon: string }[] = [
-  { id: "overview", label: "Overview", icon: "◫" },
-  { id: "analytics", label: "Analytics", icon: "⌁" },
-  { id: "feedback", label: "Feedback", icon: "✳" },
-  { id: "loyalty", label: "Loyalty members", icon: "☆" },
-  { id: "menu", label: "Menu", icon: "≡" },
-  { id: "tables", label: "Tables", icon: "▦" },
-  { id: "settings", label: "Restaurant settings", icon: "⚙" },
-  { id: "links", label: "QR & NFC links", icon: "⌗" },
-  { id: "account", label: "Account", icon: "○" },
+const navItems: { id: Section; label: string; badge?: string }[] = [
+  { id: "profile", label: "Restaurant Profile" },
+  { id: "features", label: "Feature Toggles" },
+  { id: "menu", label: "Menu Management" },
+  { id: "tables", label: "Tables & QR" },
+  { id: "loyalty", label: "Loyalty Settings" },
+  { id: "reviews", label: "Reviews & Feedback" },
+  { id: "overview", label: "Analytics Overview" },
+  { id: "account", label: "Account Settings" },
+];
+
+function getSectionIcon(id: Section) {
+  switch (id) {
+    case "profile":
+      return <IconSettings size={17} />;
+    case "features":
+      return <IconFilter size={17} />;
+    case "menu":
+      return <IconPlates size={17} />;
+    case "tables":
+      return <IconTable size={17} />;
+    case "loyalty":
+      return <IconStar size={17} />;
+    case "reviews":
+      return <IconOrder size={17} />;
+    case "overview":
+      return <IconServed size={17} />;
+    case "account":
+      return <IconStaff size={17} />;
+  }
+}
+
+const RAIPUR_AREAS = [
+  "Civil Lines",
+  "Shankar Nagar",
+  "Telibandha (Marine Drive)",
+  "VIP Road",
+  "Devendra Nagar",
+  "Pandri",
+  "Samta Colony",
+  "Tatibandh",
+  "Katora Talab",
+  "Pachpedi Naka",
+];
+
+const BRAND_COLOR_PALETTES = [
+  { name: "Forest Green", hex: "#2E5A44" },
+  { name: "Warm Terracotta", hex: "#C84B16" },
+  { name: "Royal Maroon", hex: "#7B113A" },
+  { name: "Ocean Teal", hex: "#0F4C5C" },
+  { name: "Luxe Charcoal", hex: "#2B2D42" },
+  { name: "Amber Saffron", hex: "#D97706" },
+  { name: "Coffee Bronze", hex: "#6F4E37" },
+  { name: "Midnight Navy", hex: "#1E293B" },
+];
+
+const SECONDARY_COLOR_PALETTES = [
+  { name: "Warm Gold", hex: "#D4AF37" },
+  { name: "Sage Cream", hex: "#C2D3C4" },
+  { name: "Soft Coral", hex: "#F28482" },
+  { name: "Sky Mist", hex: "#84A59D" },
+  { name: "Sandy Beige", hex: "#F5F0E8" },
+  { name: "Muted Lavender", hex: "#9D8189" },
+];
+
+const HERO_PRESETS = [
+  {
+    label: "Cafe / Bistro",
+    url: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    label: "Fine Dining",
+    url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    label: "Lounge / Bar",
+    url: "https://images.unsplash.com/photo-1578474846511-04ba529f0b88?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    label: "Rooftop / Patio",
+    url: "https://images.unsplash.com/photo-1533777857889-4be7c70b33f7?auto=format&fit=crop&w=1200&q=80",
+  },
+];
+
+const CATEGORY_ICON_PRESETS = [
+  { label: "Coffee", icon: "coffee" },
+  { label: "Tea", icon: "tea" },
+  { label: "Bakery", icon: "bakery" },
+  { label: "Cakes", icon: "cakes" },
+  { label: "Bites & Burgers", icon: "bites" },
+  { label: "Plates & Mains", icon: "plates" },
+  { label: "Cold Drinks", icon: "cold" },
+  { label: "Bowls & Soups", icon: "bowls" },
+];
+
+const MENU_TAG_PRESETS = [
+  { label: "Veg", color: "#4A7C59" },
+  { label: "Non-Veg", color: "#722F37" },
+  { label: "Egg", color: "#C4A35A" },
+  { label: "Spicy", color: "#8C4B52" },
+  { label: "Bestseller", color: "#722F37" },
+  { label: "Chef Special", color: "#5A252C" },
+  { label: "Jain", color: "#4A7C59" },
 ];
 
 async function parseResponse(response: Response) {
@@ -92,15 +238,18 @@ export default function AdminDashboard({
   restaurants,
   userEmail,
 }: AdminDashboardProps) {
-  const [section, setSection] = useState<Section>("overview");
-  const [restaurantId, setRestaurantId] = useState(restaurants[0].id);
+  const [section, setSection] = useState<Section>("profile");
+  const [restaurantId, setRestaurantId] = useState(restaurants[0]?.id ?? "");
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // Category and Item states
   const [categoryName, setCategoryName] = useState("");
+  const [categoryIcon, setCategoryIcon] = useState("☕");
   const [editingCategoryId, setEditingCategoryId] = useState("");
   const [itemId, setItemId] = useState("");
   const [itemForm, setItemForm] = useState({
@@ -109,13 +258,13 @@ export default function AdminDashboard({
     description: "",
     price: "",
     imageUrl: "",
+    dietaryTags: [] as string[],
     isAvailable: true,
+    pricingVariants: [] as { name: string; price: number }[],
   });
-  const [linkKind, setLinkKind] = useState<"qr" | "nfc">("qr");
-  const [tableLabel, setTableLabel] = useState("");
-  const [createdUrl, setCreatedUrl] = useState("");
 
   const loadData = useCallback(async () => {
+    if (!restaurantId) return;
     setIsLoading(true);
     setError("");
     try {
@@ -157,7 +306,7 @@ export default function AdminDashboard({
         body: JSON.stringify(body),
       });
       const result = await parseResponse(response);
-      setMessage("Changes saved.");
+      setMessage("Changes saved successfully.");
       await loadData();
       return result;
     } catch (actionError) {
@@ -168,21 +317,30 @@ export default function AdminDashboard({
     }
   }
 
+  // Update restaurant settings (supports partial updates)
+  async function updateRestaurantSettings(partialPayload: Record<string, unknown>) {
+    return await performRequest(`/api/admin/${restaurantId}`, partialPayload, "PATCH");
+  }
+
+  // Categories
   async function saveCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!categoryName.trim()) return;
     const result = await performRequest(`/api/admin/${restaurantId}/menu`, {
       operation: editingCategoryId ? "update-category" : "create-category",
       id: editingCategoryId || undefined,
-      name: categoryName,
+      name: categoryName.trim(),
+      icon: categoryIcon || undefined,
     });
     if (result) {
       setCategoryName("");
+      setCategoryIcon("☕");
       setEditingCategoryId("");
     }
   }
 
   async function deleteCategory(id: string) {
-    if (!window.confirm("Delete this category and all its menu items?")) return;
+    if (!window.confirm("Delete this category and all its items?")) return;
     await performRequest(`/api/admin/${restaurantId}/menu`, {
       operation: "delete-category",
       id,
@@ -190,9 +348,24 @@ export default function AdminDashboard({
     if (editingCategoryId === id) {
       setEditingCategoryId("");
       setCategoryName("");
+      setCategoryIcon("☕");
     }
   }
 
+  async function moveCategory(categoryIdToMove: string, direction: -1 | 1) {
+    if (!data) return;
+    const catIndex = data.categories.findIndex((entry) => entry.id === categoryIdToMove);
+    const targetIndex = catIndex + direction;
+    if (catIndex < 0 || targetIndex < 0 || targetIndex >= data.categories.length) return;
+    const orderedIds = data.categories.map((entry) => entry.id);
+    [orderedIds[catIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[catIndex]];
+    await performRequest(`/api/admin/${restaurantId}/menu`, {
+      operation: "reorder-categories",
+      orderedIds,
+    });
+  }
+
+  // Items
   function startEditItem(item: AdminDashboardData["items"][number]) {
     setItemId(item.id);
     setItemForm({
@@ -201,8 +374,12 @@ export default function AdminDashboard({
       description: item.description ?? "",
       price: String(item.price),
       imageUrl: item.image_url ?? "",
+      dietaryTags: item.dietary_tags ?? [],
       isAvailable: item.is_available,
+      pricingVariants: item.pricing_variants ?? [],
     });
+    // Scroll smoothly to item editor
+    document.getElementById("item-editor-card")?.scrollIntoView({ behavior: "smooth" });
   }
 
   function resetItemForm() {
@@ -213,7 +390,9 @@ export default function AdminDashboard({
       description: "",
       price: "",
       imageUrl: "",
+      dietaryTags: ["Veg"],
       isAvailable: true,
+      pricingVariants: [],
     });
   }
 
@@ -223,763 +402,1661 @@ export default function AdminDashboard({
       operation: itemId ? "update-item" : "create-item",
       id: itemId || undefined,
       ...itemForm,
+      dietaryTags: itemForm.dietaryTags,
       price: Number(itemForm.price),
+      pricingVariants: itemForm.pricingVariants,
     });
     if (result) resetItemForm();
   }
 
-  async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function deleteItem(id: string) {
+    if (!window.confirm("Are you sure you want to delete this menu item?")) return;
+    await performRequest(`/api/admin/${restaurantId}/menu`, {
+      operation: "delete-item",
+      id,
+    });
+    if (itemId === id) resetItemForm();
+  }
+
+  async function toggleItemAvailability(item: AdminDashboardData["items"][number]) {
+    await performRequest(`/api/admin/${restaurantId}/menu`, {
+      operation: "toggle-availability",
+      id: item.id,
+      isAvailable: !item.is_available,
+    });
+  }
+
+  async function bulkCategoryAvailability(categoryId: string, isAvailable: boolean) {
+    await performRequest(`/api/admin/${restaurantId}/menu`, {
+      operation: "bulk-availability",
+      categoryId,
+      isAvailable,
+    });
+  }
+
+  async function moveMenuItem(itemIdToMove: string, direction: -1 | 1) {
     if (!data) return;
-    const form = new FormData(event.currentTarget);
-    await performRequest(`/api/admin/${restaurantId}`, {
-      name: form.get("name"),
-      logoUrl: form.get("logoUrl"),
-      wifiSsid: form.get("wifiSsid"),
-      wifiPassword: form.get("wifiPassword"),
-      googleReviewUrl: form.get("googleReviewUrl"),
-      primaryColor: form.get("primaryColor"),
-    }, "PATCH");
-  }
-
-  async function createGuestLink(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const result = await performRequest(`/api/admin/${restaurantId}/links`, {
-      kind: linkKind,
-      tableLabel,
-    }) as { url?: string } | null;
-    if (result?.url) {
-      setCreatedUrl(result.url);
-      setTableLabel("");
-      setMessage(linkKind === "qr" ? "QR code link created." : "NFC link created.");
-    }
-  }
-
-  async function deleteGuestLink(id: string) {
-    if (!window.confirm("Remove this QR/NFC link? Printed copies will stop working.")) return;
-    setIsBusy(true);
-    setError("");
-    try {
-      const response = await fetch(
-        `/api/admin/${restaurantId}/links?linkId=${encodeURIComponent(id)}`,
-        { method: "DELETE" },
-      );
-      await parseResponse(response);
-      setMessage("Link removed.");
-      await loadData();
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Could not remove this link.");
-    } finally {
-      setIsBusy(false);
-    }
+    const item = data.items.find((entry) => entry.id === itemIdToMove);
+    if (!item) return;
+    const categoryItems = data.items.filter((entry) => entry.category_id === item.category_id);
+    const itemIndex = categoryItems.findIndex((entry) => entry.id === itemIdToMove);
+    const targetIndex = itemIndex + direction;
+    if (itemIndex < 0 || targetIndex < 0 || targetIndex >= categoryItems.length) return;
+    const orderedIds = categoryItems.map((entry) => entry.id);
+    [orderedIds[itemIndex], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[itemIndex]];
+    await performRequest(`/api/admin/${restaurantId}/menu`, {
+      operation: "reorder-items",
+      categoryId: item.category_id,
+      orderedIds,
+    });
   }
 
   async function signOut() {
     setIsSigningOut(true);
-    setError("");
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
-      await parseResponse(response);
       const supabase = createSupabaseBrowserClient();
-      await supabase.auth.signOut();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
       window.location.assign("/admin/login");
-    } catch (signOutError) {
-      console.error("Admin sign-out failed:", signOutError);
-      setError("Could not sign out. Please try again.");
+    } catch {
+      window.location.assign("/admin/login");
     } finally {
       setIsSigningOut(false);
     }
   }
 
-  const activeRestaurant = restaurants.find((restaurant) => restaurant.id === restaurantId);
+  const activeRestaurant = restaurants.find((r) => r.id === restaurantId);
 
   return (
-    <main className="admin-shell">
+    <main
+      className="tabletap-admin-app"
+      style={{ "--restaurant-primary": data?.restaurant?.primary_color || "#722F37" } as React.CSSProperties}
+    >
+      {/* Sidebar Navigation */}
       <aside className="admin-sidebar">
-        <Link className="brand-lockup admin-brand" href="/">
-          <span className="brand-mark">T</span>
-          <span className="brand-name">TableTap</span>
-        </Link>
-        <span className="admin-sidebar-label">Workspace</span>
-        <nav aria-label="Admin navigation" className="admin-nav">
-          {navItems.map((item) => (
-            <button
-              aria-current={section === item.id ? "page" : undefined}
-              className={section === item.id ? "admin-nav-item active" : "admin-nav-item"}
-              key={item.id}
-              onClick={() => {
-                setSection(item.id);
-                setMessage("");
-                setError("");
-              }}
-              type="button"
-            >
-              <span>{item.icon}</span>{item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="admin-sidebar-bottom">
-          <span className="admin-user-email">{userEmail}</span>
-          <button className="admin-signout" disabled={isSigningOut} onClick={() => void signOut()} type="button">
-            {isSigningOut ? "Signing out..." : "Sign out"}
-          </button>
-        </div>
-      </aside>
+        <div className="sidebar-top">
+          <Link className="admin-brand-lockup" href="/">
+            <div className="admin-brand-icon-box">
+              <span className="brand-monogram-t">T</span>
+            </div>
+            <div className="admin-brand-titles">
+              <strong className="admin-brand-name">TableTap</strong>
+              <span className="admin-brand-sub">Raipur Admin</span>
+            </div>
+          </Link>
 
-      <div className="admin-main">
-        <header className="admin-topbar">
-          <div>
-            <span className="eyebrow">Restaurant workspace</span>
-            <h1>{activeRestaurant?.name ?? "Dashboard"}</h1>
-          </div>
-          {restaurants.length > 1 && (
-            <label className="restaurant-switcher">
-              <span>Restaurant</span>
+          {/* Restaurant Branch Switcher */}
+          <div className="sidebar-branch-selector">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label htmlFor="branch-select" style={{ fontSize: 11, fontWeight: 600, color: "var(--theme-text-light, #8C7B70)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Active Venue:
+              </label>
+              <Link
+                href="/onboarding?new=true"
+                style={{ fontSize: 11, fontWeight: 600, color: "var(--theme-primary, #722F37)", textDecoration: "underline" }}
+                title="Create a new restaurant or branch in Raipur"
+              >
+                + Add Branch
+              </Link>
+            </div>
+            {restaurants.length > 1 ? (
               <select
-                onChange={(event) => {
-                  setRestaurantId(event.target.value);
-                  setCreatedUrl("");
-                }}
+                id="branch-select"
+                onChange={(e) => setRestaurantId(e.target.value)}
                 value={restaurantId}
               >
-                {restaurants.map((restaurant) => (
-                  <option key={restaurant.id} value={restaurant.id}>{restaurant.name}</option>
+                {restaurants.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
                 ))}
               </select>
-            </label>
-          )}
-          <button className="admin-mobile-signout" disabled={isSigningOut} onClick={() => void signOut()} type="button">
-            {isSigningOut ? "Signing out..." : "Sign out"}
-          </button>
-        </header>
+            ) : (
+              <div style={{ padding: "8px 12px", background: "#F5EFE6", borderRadius: 8, fontSize: 13, fontWeight: 500, color: "var(--theme-text-primary, #722F37)" }}>
+                {restaurants[0]?.name || "My Restaurant"}
+              </div>
+            )}
+          </div>
+        </div>
 
-        <div className="admin-mobile-nav" aria-label="Admin navigation">
+        {/* Navigation Items */}
+        <nav className="admin-nav-menu" aria-label="Admin Navigation">
           {navItems.map((item) => (
             <button
               aria-current={section === item.id ? "page" : undefined}
-              className={section === item.id ? "admin-mobile-tab active" : "admin-mobile-tab"}
+              className={`nav-menu-btn ${section === item.id ? "active" : ""}`}
               key={item.id}
               onClick={() => setSection(item.id)}
               type="button"
             >
-              {item.label}
+              <span className="nav-item-icon">{getSectionIcon(item.id)}</span>
+              <span className="nav-item-label">{item.label}</span>
+              {item.badge && <span className="nav-item-badge">{item.badge}</span>}
             </button>
           ))}
-        </div>
+        </nav>
 
-        <div className="admin-content">
-          {error && <p aria-live="assertive" className="admin-alert error">{error}</p>}
-          {message && !error && <p aria-live="polite" className="admin-alert success">{message}</p>}
-          {isLoading && <p className="admin-loading">Loading your workspace...</p>}
-          {!isLoading && !data && error && (
-            <section className="admin-panel admin-load-error">
-              <h2>We couldn&apos;t load this workspace.</h2>
-              <p>Check your connection and try again.</p>
-              <button className="admin-button primary" onClick={() => void loadData()} type="button">
-                Try again
-              </button>
-            </section>
+        {/* Quick Links & Sign Out */}
+        <div className="sidebar-footer">
+          <div className="sidebar-quick-tools">
+            <Link className="sidebar-tool-link" href="/kitchen">
+              <IconClock size={15} />
+              <span>Open Kitchen KDS ↗</span>
+            </Link>
+            {data?.restaurant?.slug && (
+              <Link
+                className="sidebar-tool-link"
+                href={`/${data.restaurant.slug}`}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <IconPlates size={15} />
+                <span>Live Guest Menu ↗</span>
+              </Link>
+            )}
+          </div>
+
+          <div className="sidebar-user-block">
+            <div className="user-email-wrap">
+              <span className="user-email">{userEmail}</span>
+            </div>
+            <button
+              className="admin-signout-btn"
+              disabled={isSigningOut}
+              onClick={() => void signOut()}
+              type="button"
+            >
+              {isSigningOut ? "Signing out..." : "Sign Out"}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="admin-main-stage">
+        {/* Top Navbar */}
+        <header className="admin-topbar">
+          <div className="topbar-left">
+            <span className="topbar-sub">RAIPUR RESTAURANT MANAGER</span>
+            <h1 className="topbar-title">{activeRestaurant?.name ?? "Restaurant Dashboard"}</h1>
+          </div>
+
+          <div className="topbar-right">
+            {restaurants.length > 1 && (
+              <div className="topbar-mobile-switcher">
+                <select onChange={(e) => setRestaurantId(e.target.value)} value={restaurantId}>
+                  {restaurants.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <Link className="topbar-action-btn primary" href="/kitchen">
+              <IconClock size={15} />
+              <span>Kitchen KDS</span>
+            </Link>
+            {data?.restaurant?.slug && (
+              <Link
+                className="topbar-action-btn secondary"
+                href={`/${data.restaurant.slug}`}
+                target="_blank"
+              >
+                <IconPlates size={15} />
+                <span>Guest Menu</span>
+              </Link>
+            )}
+          </div>
+        </header>
+
+        {/* Mobile horizontal tabs */}
+        <nav className="admin-mobile-tabs" aria-label="Mobile Navigation">
+          {navItems.map((item) => (
+            <button
+              className={`mobile-tab-btn ${section === item.id ? "active" : ""}`}
+              key={item.id}
+              onClick={() => setSection(item.id)}
+              type="button"
+            >
+              <span className="mobile-tab-icon">{getSectionIcon(item.id)}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Content Pane */}
+        <div className="admin-content-pane">
+          {error && (
+            <div className="admin-alert-banner error">
+              <Icon name="alert" size={15} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 6 }} />
+              <span>{error}</span>
+            </div>
           )}
-          {!isLoading && data && section === "overview" && (
-            <OverviewSection data={data} />
+          {message && !error && (
+            <div className="admin-alert-banner success">
+              <Icon name="check" size={15} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 6 }} />
+              <span>{message}</span>
+            </div>
           )}
-          {section === "analytics" && (
-            <AnalyticsSection key={restaurantId} restaurantId={restaurantId} />
+          {isLoading && <p className="admin-loading-indicator">Loading restaurant workspace...</p>}
+
+          {/* SECTION A: RESTAURANT PROFILE & BRANDING */}
+          {!isLoading && data && section === "profile" && (
+            <ProfileSection
+              isBusy={isBusy}
+              onSave={updateRestaurantSettings}
+              restaurant={data.restaurant}
+              restaurantId={restaurantId}
+            />
           )}
-          {section === "feedback" && (
-            <FeedbackAdminSection key={restaurantId} restaurantId={restaurantId} />
+
+          {/* SECTION B: FEATURE TOGGLES */}
+          {!isLoading && data && section === "features" && (
+            <FeaturesSection
+              isBusy={isBusy}
+              onSave={updateRestaurantSettings}
+              restaurant={data.restaurant}
+            />
           )}
-          {section === "loyalty" && (
-            <LoyaltyAdminSection key={restaurantId} restaurantId={restaurantId} />
-          )}
+
+          {/* SECTION C: MENU MANAGEMENT */}
           {!isLoading && data && section === "menu" && (
             <MenuSection
               categories={data.categories}
+              categoryIcon={categoryIcon}
+              categoryName={categoryName}
               editingCategoryId={editingCategoryId}
               isBusy={isBusy}
               itemForm={itemForm}
               itemId={itemId}
               items={data.items}
-              categoryName={categoryName}
-              onCategoryNameChange={setCategoryName}
-              onEditCategory={(category) => {
-                setEditingCategoryId(category.id);
-                setCategoryName(category.name);
-              }}
-              onDeleteCategory={(id) => void deleteCategory(id)}
+              onBulkAvailability={(catId, avail) => void bulkCategoryAvailability(catId, avail)}
               onCancelCategory={() => {
                 setEditingCategoryId("");
                 setCategoryName("");
+                setCategoryIcon("☕");
               }}
-              onSaveCategory={(event) => void saveCategory(event)}
-              onEditItem={startEditItem}
-              onDeleteItem={(id) => {
-                if (window.confirm("Delete this menu item?")) {
-                  void performRequest(`/api/admin/${restaurantId}/menu`, {
-                    operation: "delete-item",
-                    id,
-                  });
-                }
-              }}
-              onItemFormChange={setItemForm}
               onCancelItem={resetItemForm}
-              onSaveItem={(event) => void saveItem(event)}
+              onCategoryIconChange={setCategoryIcon}
+              onCategoryNameChange={setCategoryName}
+              onDeleteCategory={(id) => void deleteCategory(id)}
+              onDeleteItem={(id) => void deleteItem(id)}
+              onEditCategory={(category) => {
+                setEditingCategoryId(category.id);
+                setCategoryName(category.name);
+                setCategoryIcon(category.icon || "☕");
+              }}
+              onEditItem={startEditItem}
+              onItemFormChange={setItemForm}
+              onMoveCategory={(id, dir) => void moveCategory(id, dir)}
+              onMoveItem={(id, dir) => void moveMenuItem(id, dir)}
+              onSaveCategory={(e) => void saveCategory(e)}
+              onSaveItem={(e) => void saveItem(e)}
+              onToggleAvailability={(item) => void toggleItemAvailability(item)}
             />
           )}
-          {!isLoading && data && section === "settings" && (
-            <SettingsSection
-              key={data.restaurant.id}
-              restaurant={data.restaurant}
-              isBusy={isBusy}
-              onSave={(event) => void saveSettings(event)}
-            />
-          )}
+
+          {/* SECTION D: TABLES & QR */}
           {section === "tables" && (
             <TablesAdminSection key={restaurantId} restaurantId={restaurantId} />
           )}
-          {!isLoading && data && section === "links" && (
-            <LinksSection
-              links={data.links}
-              restaurantId={restaurantId}
+
+          {/* SECTION E: LOYALTY SETTINGS */}
+          {!isLoading && data && section === "loyalty" && (
+            <LoyaltySettingsSection
               isBusy={isBusy}
-              createdUrl={createdUrl}
-              kind={linkKind}
-              tableLabel={tableLabel}
-              onKindChange={setLinkKind}
-              onTableLabelChange={setTableLabel}
-              onCreate={(event) => void createGuestLink(event)}
-              onDelete={(id) => void deleteGuestLink(id)}
+              onSave={updateRestaurantSettings}
+              restaurant={data.restaurant}
+              restaurantId={restaurantId}
             />
           )}
-          {section === "account" && (
-            <AccountSection userEmail={userEmail} />
+
+          {/* SECTION F: REVIEWS & FEEDBACK */}
+          {!isLoading && data && section === "reviews" && (
+            <ReviewsSection
+              isBusy={isBusy}
+              onSave={updateRestaurantSettings}
+              restaurant={data.restaurant}
+              restaurantId={restaurantId}
+            />
           )}
+
+          {/* OVERVIEW & ANALYTICS */}
+          {!isLoading && data && section === "overview" && (
+            <div className="overview-container">
+              <AnalyticsSection key={restaurantId} restaurantId={restaurantId} />
+            </div>
+          )}
+
+          {/* ACCOUNT SETTINGS */}
+          {section === "account" && <AccountSection userEmail={userEmail} />}
         </div>
       </div>
     </main>
   );
 }
 
-function AccountSection({ userEmail }: { userEmail: string }) {
-  const [password, setPassword] = useState("");
-  const [confirmation, setConfirmation] = useState("");
-  const [error, setError] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
+/* =========================================================================
+   A. RESTAURANT PROFILE & BRANDING COMPONENT
+   ========================================================================= */
+function ProfileSection({
+  restaurant,
+  restaurantId,
+  isBusy,
+  onSave,
+}: {
+  restaurant: AdminDashboardData["restaurant"];
+  restaurantId: string;
+  isBusy: boolean;
+  onSave: (payload: Record<string, unknown>) => Promise<unknown>;
+}) {
+  const [name, setName] = useState(restaurant.name);
+  const [tagline, setTagline] = useState(restaurant.tagline || "");
+  const [address, setAddress] = useState(restaurant.address ?? "");
+  const [city, setCity] = useState(restaurant.city || "Raipur, Chhattisgarh");
+  const [phone, setPhone] = useState(restaurant.phone ?? "");
+  const [logoUrl, setLogoUrl] = useState(restaurant.logo_url ?? "");
+  const [primaryColor, setPrimaryColor] = useState(restaurant.primary_color ?? "#2E5A44");
+  const [secondaryColor, setSecondaryColor] = useState(restaurant.secondary_color ?? "");
+  const [heroImage, setHeroImage] = useState(restaurant.hero_image ?? "");
+  const [googleReviewUrl, setGoogleReviewUrl] = useState(restaurant.google_review_url ?? "");
+  const [instagramUrl, setInstagramUrl] = useState(restaurant.instagram_url ?? "");
+  const [wifiName, setWifiName] = useState(restaurant.wifi_name || restaurant.wifi_ssid || "");
+  const [wifiPassword, setWifiPassword] = useState(restaurant.wifi_password ?? "");
+  const [kitchenPin, setKitchenPin] = useState(restaurant.kitchen_pin || "1234");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
-  async function deleteAccount(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (confirmation !== "DELETE") {
-      setError("Type DELETE exactly to confirm account deletion.");
-      return;
-    }
-    if (!window.confirm("Delete your account and any restaurants where you are the only admin? This cannot be undone.")) {
-      return;
-    }
-    setIsDeleting(true);
-    setError("");
+  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    setUploadError("");
     try {
-      const response = await fetch("/api/auth/account", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, confirmation }),
+      const formData = new FormData();
+      formData.set("logo", file);
+      const response = await fetch(`/api/admin/${restaurantId}/logo`, {
+        method: "POST",
+        body: formData,
       });
-      await parseResponse(response);
-      window.location.assign("/auth/account-deleted");
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "We couldn't delete your account.");
+      const result = (await parseResponse(response)) as { logoUrl: string };
+      setLogoUrl(result.logoUrl);
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : "Could not upload image.");
     } finally {
-      setIsDeleting(false);
+      setIsUploading(false);
+      event.target.value = "";
     }
   }
 
-  return (
-    <>
-      <div className="admin-page-heading">
-        <div><span className="eyebrow">Your sign-in and profile</span><h2>Account settings</h2></div>
-      </div>
-      <section className="admin-panel account-panel">
-        <span className="eyebrow">Signed in as</span>
-        <h3>{userEmail}</h3>
-        <p>Your email address is verified. Password changes are available through the password reset flow.</p>
-        <Link className="admin-button secondary" href="/admin/forgot-password">Send password reset link</Link>
-        <div className="account-legal-links">
-          <Link href="/privacy">Privacy policy</Link>
-          <Link href="/terms">Terms of service</Link>
-        </div>
-      </section>
-      <section className="admin-panel account-delete-panel">
-        <span className="eyebrow">Permanent action</span>
-        <h3>Delete account</h3>
-        <p>
-          This permanently removes your login. Restaurants where you are the
-          only administrator and their guest data will also be deleted.
-          Restaurants with another administrator will remain available to them.
-        </p>
-        <form className="account-delete-form" onSubmit={deleteAccount}>
-          <label className="admin-field">
-            Current password
-            <input
-              autoComplete="current-password"
-              maxLength={256}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
-          </label>
-          <label className="admin-field">
-            Type DELETE to confirm
-            <input
-              autoComplete="off"
-              onChange={(event) => setConfirmation(event.target.value)}
-              required
-              value={confirmation}
-            />
-          </label>
-          {error && <p aria-live="assertive" className="form-error">{error}</p>}
-          <button className="admin-button danger-button" disabled={isDeleting} type="submit">
-            {isDeleting ? "Deleting account..." : "Delete account"}
-          </button>
-        </form>
-      </section>
-    </>
-  );
-}
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await onSave({
+      name: name.trim(),
+      tagline: tagline.trim(),
+      description: tagline.trim() || undefined,
+      address: address.trim(),
+      city: city.trim(),
+      phone: phone.trim(),
+      logoUrl: logoUrl.trim() || null,
+      primaryColor,
+      secondaryColor: secondaryColor.trim() || null,
+      heroImage: heroImage.trim() || undefined,
+      googleReviewUrl: googleReviewUrl.trim() || null,
+      instagramUrl: instagramUrl.trim() || null,
+      wifiName: wifiName.trim() || undefined,
+      wifiSsid: wifiName.trim() || undefined,
+      wifiPassword: wifiPassword.trim() || undefined,
+      kitchenPin: kitchenPin.trim() || "1234",
+    });
+  }
 
-function OverviewSection({ data }: { data: AdminDashboardData }) {
   return (
-    <>
-      <div className="admin-page-heading">
+    <div className="admin-panel-card">
+      <div className="panel-header">
         <div>
-          <span className="eyebrow">At a glance</span>
-          <h2>Welcome to your table.</h2>
+          <span className="panel-eyebrow">Raipur Customization</span>
+          <h2>Restaurant Profile &amp; Branding</h2>
         </div>
-        <Link className="admin-guest-link" href={`/${data.restaurant.slug}`} target="_blank" rel="noreferrer">
-          View guest page ↗
-        </Link>
+        <p className="panel-desc">
+          Customize your venue&apos;s identity, Raipur area, brand theme color palette, Google Review link, and guest Wi-Fi.
+        </p>
       </div>
-      <div className="admin-stats-grid">
-        <article className="admin-stat-card">
-          <span className="eyebrow">Total scans</span>
-          <strong>{data.totalScans.toLocaleString()}</strong>
-          <span className="stat-caption">Guest page views · all time</span>
-        </article>
-        <article className="admin-stat-card">
-          <span className="eyebrow">Loyalty members</span>
-          <strong>{data.loyaltyMemberCount}</strong>
-          <span className="stat-caption">Across this restaurant</span>
-        </article>
-        <article className="admin-stat-card">
-          <span className="eyebrow">Recent feedback</span>
-          <strong>{data.feedback.length}</strong>
-          <span className="stat-caption">Latest guest notes below</span>
-        </article>
-      </div>
-      <section className="admin-panel">
-        <div className="admin-panel-heading">
-          <div>
-            <span className="eyebrow">Guest voices</span>
-            <h3>Recent feedback</h3>
+
+      <form className="admin-form-flow" onSubmit={handleSubmit}>
+        {/* 1. Basic Name & Tagline */}
+        <div className="form-row-two">
+          <label className="admin-label">
+            Restaurant Name
+            <input
+              className="admin-input"
+              maxLength={120}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Mocha Cafe & Bar"
+              required
+              value={name}
+            />
+            <span className="field-hint">Displayed prominently on your guest menus and table headers.</span>
+          </label>
+
+          <label className="admin-label">
+            Tagline / Short Description
+            <input
+              className="admin-input"
+              maxLength={160}
+              onChange={(e) => setTagline(e.target.value)}
+              placeholder="e.g. Specialty Coffee & Artisan Wood-Fired Kitchen"
+              value={tagline}
+            />
+            <span className="field-hint">Catchy one-liner displayed under your restaurant title.</span>
+          </label>
+        </div>
+
+        {/* 2. Raipur Location & Area suggestions */}
+        <div className="form-group-block">
+          <div className="form-row-two">
+            <label className="admin-label">
+              Address / Area in Raipur
+              <input
+                className="admin-input"
+                maxLength={250}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. Civil Lines, Near Raj Bhavan"
+                value={address}
+              />
+            </label>
+
+            <label className="admin-label">
+              City &amp; State
+              <input
+                className="admin-input"
+                maxLength={100}
+                onChange={(e) => setCity(e.target.value)}
+                required
+                value={city}
+              />
+            </label>
           </div>
-          <span className="private-badge">Private</span>
-        </div>
-        {data.feedback.length ? (
-          <div className="feedback-list">
-            {data.feedback.map((entry) => (
-              <article className="admin-feedback-item" key={entry.id}>
-                <div className="feedback-rating-line">
-                  <span className="admin-rating-stars" aria-label={`${entry.rating} out of 5 stars`}>
-                    {"★".repeat(entry.rating)}<span>{"★".repeat(5 - entry.rating)}</span>
-                  </span>
-                  <time dateTime={entry.created_at}>
-                    {new Date(entry.created_at).toLocaleDateString()}
-                  </time>
-                </div>
-                <p>{entry.comment || "No written comment."}</p>
-                <div className="overview-feedback-meta">
-                  <span className="feedback-author">{entry.guest_name || "Guest"}</span>
-                  {entry.table_label && <span className="feedback-author">Table · {entry.table_label}</span>}
-                  <span className={entry.resolved_at ? "resolved-badge" : "unresolved-badge"}>
-                    {entry.resolved_at ? "Resolved" : "Unresolved"}
-                  </span>
-                </div>
-              </article>
+
+          <div className="area-suggestion-pills">
+            <span className="pills-hint">Quick-fill Raipur locality:</span>
+            {RAIPUR_AREAS.map((area) => (
+              <button
+                className="area-pill-btn"
+                key={area}
+                onClick={() => setAddress(area)}
+                type="button"
+              >
+                + {area}
+              </button>
             ))}
           </div>
-        ) : (
-          <p className="admin-empty-message">Feedback will appear here after your first guest response.</p>
-        )}
-      </section>
-    </>
+        </div>
+
+        {/* 3. Contact Phone & Social Links */}
+        <div className="form-row-two">
+          <label className="admin-label">
+            Restaurant Phone Number
+            <input
+              className="admin-input"
+              inputMode="tel"
+              maxLength={25}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. +91 98765 43210 or 0771-4001234"
+              value={phone}
+            />
+            <span className="field-hint">For guest inquiries and support on digital receipts.</span>
+          </label>
+
+          <label className="admin-label">
+            Instagram / Social Profile URL
+            <div className="input-with-btn">
+              <input
+                className="admin-input"
+                onChange={(e) => setInstagramUrl(e.target.value)}
+                placeholder="https://instagram.com/your_cafe"
+                type="url"
+                value={instagramUrl}
+              />
+              {instagramUrl && (
+                <a
+                  className="admin-btn secondary"
+                  href={instagramUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Test Link ↗
+                </a>
+              )}
+            </div>
+            <span className="field-hint">Optional link for guests to follow your social channels.</span>
+          </label>
+        </div>
+
+        {/* 4. Logo Upload & URL with Preview */}
+        <div className="form-group-block">
+          <label className="admin-label">Restaurant Logo</label>
+          <div className="logo-upload-cluster">
+            {logoUrl ? (
+              <div className="logo-preview-box">
+                <Image
+                  alt="Logo preview"
+                  className="logo-preview-img"
+                  height={72}
+                  src={logoUrl}
+                  unoptimized
+                  width={72}
+                />
+              </div>
+            ) : (
+              <div
+                className="logo-preview-placeholder"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {name.slice(0, 2).toUpperCase() || "TT"}
+              </div>
+            )}
+
+            <div className="logo-upload-controls">
+              <div className="upload-buttons-row">
+                <label className="upload-file-btn">
+                  <span>{isUploading ? "Uploading..." : "Upload Logo (PNG / JPG / WebP)"}</span>
+                  <input
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={isUploading}
+                    onChange={(e) => void handleLogoUpload(e)}
+                    type="file"
+                  />
+                </label>
+                {logoUrl && (
+                  <button
+                    className="admin-btn secondary small"
+                    onClick={() => setLogoUrl("")}
+                    type="button"
+                  >
+                    Clear Logo
+                  </button>
+                )}
+              </div>
+              <input
+                className="admin-input logo-url-input"
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="Or paste direct logo HTTPS URL"
+                type="url"
+                value={logoUrl}
+              />
+            </div>
+          </div>
+          {uploadError && <p className="admin-field-error">{uploadError}</p>}
+        </div>
+
+        {/* 5. Color Palette: Primary & Secondary Colors */}
+        <div className="form-group-block">
+          <div className="form-row-two">
+            {/* Primary Color */}
+            <div className="color-section-col">
+              <label className="admin-label">
+                Primary Brand Color
+                <span className="field-hint">Used for headers, action buttons, table badges &amp; checkout bar.</span>
+              </label>
+              <div className="color-input-pair">
+                <input
+                  aria-label="Color hex"
+                  className="admin-input color-text"
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  pattern="#[0-9a-fA-F]{6}"
+                  value={primaryColor}
+                />
+                <input
+                  aria-label="Pick color"
+                  className="native-color-picker"
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  type="color"
+                  value={primaryColor}
+                />
+              </div>
+
+              <div className="color-swatches-row">
+                <span className="swatches-label">Raipur Presets:</span>
+                {BRAND_COLOR_PALETTES.map((palette) => (
+                  <button
+                    className={`color-swatch-btn ${primaryColor.toLowerCase() === palette.hex.toLowerCase() ? "active" : ""}`}
+                    key={palette.hex}
+                    onClick={() => setPrimaryColor(palette.hex)}
+                    style={{ backgroundColor: palette.hex }}
+                    title={palette.name}
+                    type="button"
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Secondary Color */}
+            <div className="color-section-col">
+              <label className="admin-label">
+                Secondary Accent Color <span>(Optional)</span>
+                <span className="field-hint">Subtle secondary tint used for highlights, tags, and borders.</span>
+              </label>
+              <div className="color-input-pair">
+                <input
+                  aria-label="Secondary color hex"
+                  className="admin-input color-text"
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  placeholder="e.g. #D4AF37"
+                  value={secondaryColor}
+                />
+                <input
+                  aria-label="Pick secondary color"
+                  className="native-color-picker"
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  type="color"
+                  value={secondaryColor || "#D4AF37"}
+                />
+                {secondaryColor && (
+                  <button
+                    className="admin-btn secondary small"
+                    onClick={() => setSecondaryColor("")}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <div className="color-swatches-row">
+                <span className="swatches-label">Accents:</span>
+                {SECONDARY_COLOR_PALETTES.map((palette) => (
+                  <button
+                    className={`color-swatch-btn ${secondaryColor.toLowerCase() === palette.hex.toLowerCase() ? "active" : ""}`}
+                    key={palette.hex}
+                    onClick={() => setSecondaryColor(palette.hex)}
+                    style={{ backgroundColor: palette.hex }}
+                    title={palette.name}
+                    type="button"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Cover / Banner Image with Preview */}
+        <div className="form-group-block">
+          <label className="admin-label">
+            Cover / Banner Image <span>(Optional)</span>
+            <span className="field-hint">Appears at the top of your restaurant overview and share cards.</span>
+          </label>
+          <div className="banner-input-row">
+            <input
+              className="admin-input"
+              onChange={(e) => setHeroImage(e.target.value)}
+              placeholder="https://images.unsplash.com/..."
+              type="url"
+              value={heroImage}
+            />
+            {heroImage && (
+              <button
+                className="admin-btn secondary small"
+                onClick={() => setHeroImage("")}
+                type="button"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="hero-presets-row">
+            <span className="pills-hint">Or choose a preset style:</span>
+            {HERO_PRESETS.map((preset) => (
+              <button
+                className="area-pill-btn"
+                key={preset.label}
+                onClick={() => setHeroImage(preset.url)}
+                type="button"
+              >
+                + {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {heroImage && (
+            <div className="hero-banner-preview">
+              <Image
+                alt="Banner preview"
+                className="hero-banner-img"
+                height={160}
+                src={heroImage}
+                unoptimized
+                width={700}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 7. Google Review Link (Very Important) */}
+        <div className="form-group-block google-highlight-box">
+          <div className="google-box-header">
+            <span className="google-icon">⭐️</span>
+            <div>
+              <h3>Google Review Link (Very Important)</h3>
+              <p>
+                When guests tap &apos;Review&apos; on their table, TableTap directs them directly to your Google Maps review dialog to boost your rating in Raipur.
+              </p>
+            </div>
+          </div>
+
+          <div className="google-input-row">
+            <input
+              className="admin-input"
+              onChange={(e) => setGoogleReviewUrl(e.target.value)}
+              placeholder="https://g.page/r/... or https://maps.google.com/..."
+              type="url"
+              value={googleReviewUrl}
+            />
+            {googleReviewUrl && (
+              <a
+                className="admin-btn secondary"
+                href={googleReviewUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Test Link ↗
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* 8. Guest Wi-Fi Settings */}
+        <div className="form-group-block wifi-admin-box">
+          <div className="section-subheading">
+            <span className="subhead-icon"><Icon name="wifi" size={18} /></span>
+            <div>
+              <h3>Guest Wi-Fi Details</h3>
+              <p>Network name and password displayed on guest table menus with 1-tap copy.</p>
+            </div>
+          </div>
+
+          <div className="form-row-two" style={{ marginTop: 12 }}>
+            <label className="admin-label">
+              Wi-Fi Name (SSID)
+              <input
+                className="admin-input"
+                maxLength={128}
+                onChange={(e) => setWifiName(e.target.value)}
+                placeholder="e.g. Mocha_Guest_5G"
+                value={wifiName}
+              />
+            </label>
+
+            <label className="admin-label">
+              Wi-Fi Password
+              <input
+                className="admin-input"
+                maxLength={256}
+                onChange={(e) => setWifiPassword(e.target.value)}
+                placeholder="e.g. bestcoffee2026"
+                value={wifiPassword}
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* 9. Kitchen & Staff Access */}
+        <div className="form-group-block staff-admin-box" style={{ background: "#FDFBF7", border: "1px solid var(--theme-border, #D9CBB8)", borderRadius: 14, padding: 20 }}>
+          <div className="section-subheading">
+            <span className="subhead-icon"><Icon name="clock" size={18} /></span>
+            <div>
+              <h3>Kitchen Display &amp; Staff Access</h3>
+              <p>Set a 4-digit PIN for your kitchen tablets and floor staff to log in without sharing your owner password.</p>
+            </div>
+          </div>
+
+          <div className="form-row-two" style={{ marginTop: 14 }}>
+            <label className="admin-label">
+              4-Digit Staff PIN
+              <input
+                className="admin-input"
+                maxLength={8}
+                pattern="[0-9]*"
+                onChange={(e) => setKitchenPin(e.target.value)}
+                placeholder="1234"
+                value={kitchenPin}
+              />
+              <span className="field-hint">Default is 1234. Staff log in at <code>/admin/login</code> under Kitchen Staff.</span>
+            </label>
+
+            <div className="admin-label">
+              <span>Direct Kitchen Tablet URL</span>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <input
+                  className="admin-input"
+                  readOnly
+                  style={{ background: "#F5EFE6", fontSize: 13 }}
+                  value={typeof window !== "undefined" ? `${window.location.origin}/kitchen?restaurant=${restaurantId}` : `/kitchen?restaurant=${restaurantId}`}
+                />
+                <button
+                  type="button"
+                  className="admin-btn secondary"
+                  style={{ whiteSpace: "nowrap" }}
+                  onClick={() => {
+                    const url = typeof window !== "undefined" ? `${window.location.origin}/kitchen?restaurant=${restaurantId}` : `/kitchen?restaurant=${restaurantId}`;
+                    void navigator.clipboard.writeText(url);
+                    alert("Kitchen KDS URL copied to clipboard!");
+                  }}
+                >
+                  Copy URL
+                </button>
+              </div>
+              <span className="field-hint">Bookmark this on your kitchen iPad or Android terminal.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-submit-row">
+          <button className="admin-btn primary large" disabled={isBusy} type="submit">
+            {isBusy ? "Saving Settings..." : "Save Restaurant Profile"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
-type ItemForm = {
-  categoryId: string;
-  name: string;
-  description: string;
-  price: string;
-  imageUrl: string;
-  isAvailable: boolean;
-};
+/* =========================================================================
+   B. FEATURE TOGGLES COMPONENT
+   ========================================================================= */
+function FeaturesSection({
+  restaurant,
+  isBusy,
+  onSave,
+}: {
+  restaurant: AdminDashboardData["restaurant"];
+  isBusy: boolean;
+  onSave: (payload: Record<string, unknown>) => Promise<unknown>;
+}) {
+  const [features, setFeatures] = useState({
+    enableMenu: restaurant.enable_menu !== false,
+    enableOrdering: restaurant.enable_ordering !== false,
+    loyaltyEnabled: restaurant.loyalty_enabled !== false,
+    enableCallWaiter: restaurant.enable_call_waiter !== false,
+    enableRequestBill: restaurant.enable_request_bill !== false,
+    enableWifi: restaurant.enable_wifi !== false,
+    enableFeedback: restaurant.enable_feedback !== false,
+    enableGoogleReviews: restaurant.enable_google_reviews !== false,
+  });
 
+  const featureList = [
+    {
+      key: "enableMenu" as const,
+      label: "Digital Menu",
+      iconName: "plates" as const,
+      desc: "Display your interactive food & drink menu when diners scan table QR codes.",
+      tip: "When disabled, guests see an offline maintenance notice instead.",
+    },
+    {
+      key: "enableOrdering" as const,
+      label: "Online Table Ordering",
+      iconName: "bag" as const,
+      desc: "Allow seated guests to add items to their cart and send orders directly to KDS.",
+      tip: "When disabled, TableTap operates in pure view-only digital menu mode.",
+    },
+    {
+      key: "loyaltyEnabled" as const,
+      label: "Loyalty Program",
+      iconName: "loyalty" as const,
+      desc: "Enable mobile number rewards and stamp/point collection to retain regular diners.",
+      tip: "Diners can check their stamps & reward progress right at their table.",
+    },
+    {
+      key: "enableCallWaiter" as const,
+      label: "Call Waiter Button",
+      iconName: "bell-service" as const,
+      desc: "Give diners an instant assistance button that rings the kitchen & staff panel.",
+      tip: "Includes a 90-second anti-spam cooldown.",
+    },
+    {
+      key: "enableRequestBill" as const,
+      label: "Request Bill Button",
+      iconName: "bill" as const,
+      desc: "Guests can request their invoice / UPI QR / card terminal directly from their seat.",
+      tip: "Alerts staff with the table number.",
+    },
+    {
+      key: "enableWifi" as const,
+      label: "Guest Wi-Fi Sharing",
+      iconName: "wifi" as const,
+      desc: "Display your complimentary guest Wi-Fi details with 1-tap password copy on table menus.",
+      tip: "Configure network name & password in Restaurant Profile.",
+    },
+    {
+      key: "enableFeedback" as const,
+      label: "Internal Reviews & Feedback",
+      iconName: "chat" as const,
+      desc: "Private guest ratings (1-5 stars) and comments sent directly to manager inbox.",
+      tip: "Keeps critical feedback private so you can fix issues quickly.",
+    },
+    {
+      key: "enableGoogleReviews" as const,
+      label: "Google Review Button",
+      iconName: "star" as const,
+      desc: "Direct happy guests straight to your Google Maps review dialog to boost ranking in Raipur.",
+      tip: "Configure your Google Maps review link in Restaurant Profile.",
+    },
+  ];
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await onSave(features);
+  }
+
+  return (
+    <div className="admin-panel-card">
+      <div className="panel-header">
+        <div>
+          <span className="panel-eyebrow">Restaurant Control Center</span>
+          <h2>Feature Toggles</h2>
+        </div>
+        <p className="panel-desc">
+          Turn features on or off with one tap. Changes take effect immediately across all dining table QR codes.
+        </p>
+      </div>
+
+      <form className="admin-form-flow" onSubmit={handleSubmit}>
+        <div className="features-admin-grid">
+          {featureList.map((f) => {
+            const isChecked = features[f.key];
+            return (
+              <div
+                className={`feature-toggle-card ${isChecked ? "enabled" : "disabled"}`}
+                key={f.key}
+              >
+                <div className="feature-card-header">
+                  <span className="feature-card-icon"><Icon name={f.iconName} size={22} /></span>
+                  <label className="feature-switch-control">
+                    <input
+                      checked={isChecked}
+                      onChange={(e) =>
+                        setFeatures((prev) => ({ ...prev, [f.key]: e.target.checked }))
+                      }
+                      type="checkbox"
+                    />
+                    <span className="feature-slider" />
+                  </label>
+                </div>
+                <div className="feature-card-body">
+                  <div className="feature-title-row">
+                    <strong>{f.label}</strong>
+                    <span className={`feature-status-badge ${isChecked ? "active" : "off"}`}>
+                      {isChecked ? "Active" : "Disabled"}
+                    </span>
+                  </div>
+                  <p className="feature-card-desc">{f.desc}</p>
+                  <span className="feature-card-tip">
+                    <Icon name="bulb" size={13} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 4 }} />
+                    {f.tip}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="form-submit-row">
+          <button className="admin-btn primary large" disabled={isBusy} type="submit">
+            {isBusy ? "Saving Features..." : "Save Feature Toggles"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* =========================================================================
+   C. MENU MANAGEMENT COMPONENT
+   ========================================================================= */
 function MenuSection(props: {
   categories: AdminDashboardData["categories"];
+  categoryName: string;
+  categoryIcon: string;
+  editingCategoryId: string;
   items: AdminDashboardData["items"];
   itemId: string;
-  itemForm: ItemForm;
+  itemForm: {
+    categoryId: string;
+    name: string;
+    description: string;
+    price: string;
+    imageUrl: string;
+    dietaryTags: string[];
+    isAvailable: boolean;
+    pricingVariants: { name: string; price: number }[];
+  };
   isBusy: boolean;
-  categoryName: string;
-  editingCategoryId: string;
   onCategoryNameChange: (value: string) => void;
+  onCategoryIconChange: (value: string) => void;
   onEditCategory: (category: AdminDashboardData["categories"][number]) => void;
   onDeleteCategory: (id: string) => void;
+  onMoveCategory: (id: string, direction: -1 | 1) => void;
   onCancelCategory: () => void;
   onSaveCategory: (event: React.FormEvent<HTMLFormElement>) => void;
   onEditItem: (item: AdminDashboardData["items"][number]) => void;
   onDeleteItem: (id: string) => void;
-  onItemFormChange: (form: ItemForm) => void;
+  onToggleAvailability: (item: AdminDashboardData["items"][number]) => void;
+  onBulkAvailability: (categoryId: string, isAvailable: boolean) => void;
+  onMoveItem: (id: string, direction: -1 | 1) => void;
+  onItemFormChange: (form: typeof props.itemForm) => void;
   onCancelItem: () => void;
   onSaveItem: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
-  return (
-    <>
-      <div className="admin-page-heading">
-        <div>
-          <span className="eyebrow">Keep it current</span>
-          <h2>Menu management</h2>
-        </div>
-      </div>
-      <section className="admin-panel category-manager">
-        <div className="admin-panel-heading">
-          <div><span className="eyebrow">Organize</span><h3>Categories</h3></div>
-        </div>
-        {props.categories.map((category) => (
-          <div className="category-admin-row" key={category.id}>
-            <span>{category.name}</span>
-            <div>
-              <button onClick={() => props.onEditCategory(category)} type="button">Rename</button>
-              <button className="danger-action" onClick={() => props.onDeleteCategory(category.id)} type="button">
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-        <form className="inline-admin-form" onSubmit={props.onSaveCategory}>
-          <input
-            aria-label="Category name"
-            maxLength={100}
-            onChange={(event) => props.onCategoryNameChange(event.target.value)}
-            placeholder="New category name"
-            required
-            value={props.categoryName}
-          />
-          <button className="admin-button secondary" disabled={props.isBusy} type="submit">
-            {props.editingCategoryId ? "Save name" : "Add category"}
-          </button>
-          {props.editingCategoryId && (
-            <button className="admin-text-button" onClick={props.onCancelCategory} type="button">Cancel</button>
-          )}
-        </form>
-      </section>
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState("all");
+  const [itemSearchQuery, setItemSearchQuery] = useState("");
 
-      <section className="admin-panel item-editor-panel">
-        <div className="admin-panel-heading">
-          <div>
-            <span className="eyebrow">Menu details</span>
-            <h3>{props.itemId ? "Edit item" : "Add a menu item"}</h3>
-          </div>
-        </div>
-        <form className="admin-form-grid" onSubmit={props.onSaveItem}>
-          <label className="admin-field">
-            Category
-            <select
-              onChange={(event) => props.onItemFormChange({ ...props.itemForm, categoryId: event.target.value })}
-              required
-              value={props.itemForm.categoryId}
-            >
-              <option value="">Choose a category</option>
-              {props.categories.map((category) => (
-                <option key={category.id} value={category.id}>{category.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="admin-field">
-            Item name
-            <input
-              maxLength={120}
-              onChange={(event) => props.onItemFormChange({ ...props.itemForm, name: event.target.value })}
-              required
-              value={props.itemForm.name}
-            />
-          </label>
-          <label className="admin-field">
-            Price
-            <input
-              min="0"
-              onChange={(event) => props.onItemFormChange({ ...props.itemForm, price: event.target.value })}
-              required
-              step="0.01"
-              type="number"
-              value={props.itemForm.price}
-            />
-          </label>
-          <label className="admin-field">
-            Photo URL
-            <input
-              onChange={(event) => props.onItemFormChange({ ...props.itemForm, imageUrl: event.target.value })}
-              placeholder="https://..."
-              type="url"
-              value={props.itemForm.imageUrl}
-            />
-          </label>
-          <label className="admin-field admin-field-wide">
-            Description
-            <textarea
-              maxLength={1000}
-              onChange={(event) => props.onItemFormChange({ ...props.itemForm, description: event.target.value })}
-              rows={3}
-              value={props.itemForm.description}
-            />
-          </label>
-          <label className="admin-toggle">
-            <input
-              checked={props.itemForm.isAvailable}
-              onChange={(event) => props.onItemFormChange({ ...props.itemForm, isAvailable: event.target.checked })}
-              type="checkbox"
-            />
-            Available to order
-          </label>
-          <div className="admin-form-actions">
-            {props.itemId && (
-              <button className="admin-button secondary" onClick={props.onCancelItem} type="button">
-                Cancel edit
-              </button>
-            )}
-            <button className="admin-button primary" disabled={props.isBusy || !props.categories.length} type="submit">
-              {props.itemId ? "Save item" : "Add item"}
-            </button>
-          </div>
-        </form>
-      </section>
+  const visibleItems = props.items.filter((item) => {
+    if (selectedFilterCategory !== "all" && item.category_id !== selectedFilterCategory) {
+      return false;
+    }
+    if (itemSearchQuery.trim()) {
+      const q = itemSearchQuery.toLowerCase().trim();
+      return (
+        item.name.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
 
-      <section className="admin-panel">
-        <div className="admin-panel-heading">
-          <div><span className="eyebrow">Published menu</span><h3>{props.items.length} items</h3></div>
-        </div>
-        {props.items.length ? (
-          <div className="admin-menu-list">
-            {props.items.map((item) => (
-              <article className="admin-menu-row" key={item.id}>
-                {item.image_url ? (
-                  <Image alt="" className="admin-menu-thumb" height={54} src={item.image_url} unoptimized width={64} />
-                ) : (
-                  <div aria-hidden="true" className="admin-menu-thumb menu-thumb-empty">✳</div>
-                )}
-                <div className="admin-menu-item-copy">
-                  <strong>{item.name}</strong>
-                  <span>{props.categories.find((category) => category.id === item.category_id)?.name ?? "Uncategorized"} · ${Number(item.price).toFixed(2)}</span>
-                </div>
-                <span className={item.is_available ? "availability-pill available" : "availability-pill unavailable"}>
-                  {item.is_available ? "Available" : "Sold out"}
-                </span>
-                <button className="admin-text-button" onClick={() => props.onEditItem(item)} type="button">Edit</button>
-                <button className="admin-text-button danger-action" onClick={() => props.onDeleteItem(item.id)} type="button">Delete</button>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="admin-empty-message">Add your first menu item above.</p>
-        )}
-      </section>
-    </>
-  );
-}
-
-function SettingsSection(props: {
-  restaurant: AdminDashboardData["restaurant"];
-  isBusy: boolean;
-  onSave: (event: React.FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <>
-      <div className="admin-page-heading">
-        <div><span className="eyebrow">Make it yours</span><h2>Restaurant settings</h2></div>
-      </div>
-      <section className="admin-panel settings-panel">
-        <form className="admin-form-grid" onSubmit={props.onSave}>
-          <label className="admin-field">
-            Restaurant name
-            <input defaultValue={props.restaurant.name} maxLength={120} name="name" required />
-          </label>
-          <label className="admin-field">
-            Logo image URL
-            <input defaultValue={props.restaurant.logo_url ?? ""} name="logoUrl" placeholder="https://..." type="url" />
-          </label>
-          <label className="admin-field">
-            Wi-Fi network name
-            <input defaultValue={props.restaurant.wifi_ssid} maxLength={128} name="wifiSsid" />
-          </label>
-          <label className="admin-field">
-            Wi-Fi password
-            <input defaultValue={props.restaurant.wifi_password} maxLength={256} name="wifiPassword" />
-          </label>
-          <label className="admin-field admin-field-wide">
-            Google review link
-            <input defaultValue={props.restaurant.google_review_url ?? ""} name="googleReviewUrl" placeholder="https://..." type="url" />
-          </label>
-          <label className="admin-field">
-            Primary brand color
-            <span className="admin-color-field">
-              <input defaultValue={props.restaurant.primary_color ?? "#536543"} name="primaryColor" pattern="#[0-9a-fA-F]{6}" required />
-              <input
-                aria-label="Pick primary brand color"
-                defaultValue={props.restaurant.primary_color ?? "#536543"}
-                onChange={(event) => {
-                  const textField = event.currentTarget.previousElementSibling as HTMLInputElement | null;
-                  if (textField) textField.value = event.target.value;
-                }}
-                type="color"
-              />
-            </span>
-          </label>
-          <div className="admin-form-actions admin-field-wide">
-            <button className="admin-button primary" disabled={props.isBusy} type="submit">
-              Save settings
-            </button>
-          </div>
-        </form>
-        <p className="admin-privacy-note">Restaurant settings and credentials are only available to linked admin accounts.</p>
-      </section>
-    </>
-  );
-}
-
-function LinksSection(props: {
-  links: AdminDashboardData["links"];
-  restaurantId: string;
-  isBusy: boolean;
-  createdUrl: string;
-  kind: "qr" | "nfc";
-  tableLabel: string;
-  onKindChange: (kind: "qr" | "nfc") => void;
-  onTableLabelChange: (label: string) => void;
-  onCreate: (event: React.FormEvent<HTMLFormElement>) => void;
-  onDelete: (id: string) => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [copyMessage, setCopyMessage] = useState("");
-  const [siteOrigin, setSiteOrigin] = useState("");
-
-  useEffect(() => {
-    setSiteOrigin(window.location.origin);
-  }, []);
-
-  async function copyLink(url: string) {
-    setCopyMessage("");
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch (copyError) {
-      console.error("Could not copy guest link:", copyError);
-      setCopyMessage("Copy isn't available here. Open the link or copy it manually.");
+  function toggleTag(tagLabel: string) {
+    const current = props.itemForm.dietaryTags;
+    if (current.includes(tagLabel)) {
+      props.onItemFormChange({
+        ...props.itemForm,
+        dietaryTags: current.filter((t) => t !== tagLabel),
+      });
+    } else {
+      props.onItemFormChange({
+        ...props.itemForm,
+        dietaryTags: [...current, tagLabel],
+      });
     }
   }
 
+  function addPricingVariant() {
+    props.onItemFormChange({
+      ...props.itemForm,
+      pricingVariants: [
+        ...props.itemForm.pricingVariants,
+        { name: "Large", price: Number(props.itemForm.price) || 0 },
+      ],
+    });
+  }
+
+  function updatePricingVariant(index: number, name: string, price: number) {
+    const next = [...props.itemForm.pricingVariants];
+    next[index] = { name, price };
+    props.onItemFormChange({
+      ...props.itemForm,
+      pricingVariants: next,
+    });
+  }
+
+  function removePricingVariant(index: number) {
+    const next = props.itemForm.pricingVariants.filter((_, i) => i !== index);
+    props.onItemFormChange({
+      ...props.itemForm,
+      pricingVariants: next,
+    });
+  }
+
   return (
-    <>
-      <div className="admin-page-heading">
-        <div><span className="eyebrow">Print, place, welcome</span><h2>QR codes & NFC tags</h2></div>
-      </div>
-      <section className="admin-panel link-create-panel">
-        <div className="admin-panel-heading">
-          <div><span className="eyebrow">New guest link</span><h3>Create a unique destination</h3></div>
-        </div>
-        <form className="link-create-form" onSubmit={props.onCreate}>
-          <label className="admin-field">
-            Link type
-            <select onChange={(event) => props.onKindChange(event.target.value as "qr" | "nfc")} value={props.kind}>
-              <option value="qr">QR code</option>
-              <option value="nfc">NFC tag</option>
-            </select>
-          </label>
-          <label className="admin-field">
-            Table / placement label <span className="field-optional">Optional</span>
-            <input
-              maxLength={80}
-              onChange={(event) => props.onTableLabelChange(event.target.value)}
-              placeholder="e.g. Patio table 4"
-              value={props.tableLabel}
-            />
-          </label>
-          <button className="admin-button primary" disabled={props.isBusy} type="submit">
-            Create {props.kind === "qr" ? "QR code" : "NFC link"}
-          </button>
-        </form>
-        <p className="admin-privacy-note">
-          NFC links are unique URLs ready to write to a tag. Guest page opens are counted as approximate page views.
-        </p>
-        {copyMessage && <p aria-live="polite" className="admin-inline-error">{copyMessage}</p>}
-        {props.createdUrl && (
-          <div className="created-link-notice">
-            <span>{props.createdUrl}</span>
-            <button className="admin-button secondary" onClick={() => void copyLink(props.createdUrl)} type="button">
-              {copied ? "Copied" : "Copy link"}
-            </button>
+    <div className="admin-menu-management">
+      {/* 1. Category Manager */}
+      <section className="admin-panel-card">
+        <div className="panel-header">
+          <div>
+            <span className="panel-eyebrow">Step 1: Organize</span>
+            <h2>Menu Categories &amp; Ordering</h2>
           </div>
-        )}
+          <p className="panel-desc">
+            Organize dishes into sections with icons. Use the ▲ / ▼ arrows to reorder how categories appear on table menus.
+          </p>
+        </div>
+
+        <div className="category-manager-grid">
+          <div className="category-chips-list">
+            {props.categories.map((cat, index) => {
+              const count = props.items.filter((i) => i.category_id === cat.id).length;
+              return (
+                <div className="cat-admin-pill" key={cat.id}>
+                  <div className="cat-reorder-arrows">
+                    <button
+                      aria-label="Move category up"
+                      className="cat-arrow-btn"
+                      disabled={index === 0}
+                      onClick={() => props.onMoveCategory(cat.id, -1)}
+                      title="Move Category Up"
+                      type="button"
+                    >
+                      <Icon name="chevron-up" size={11} />
+                    </button>
+                    <button
+                      aria-label="Move category down"
+                      className="cat-arrow-btn"
+                      disabled={index === props.categories.length - 1}
+                      onClick={() => props.onMoveCategory(cat.id, 1)}
+                      title="Move Category Down"
+                      type="button"
+                    >
+                      <Icon name="chevron-down" size={11} />
+                    </button>
+                  </div>
+
+                  <span className="cat-pill-icon"><CategoryIcon name={cat.name || cat.icon || "plates"} size={16} /></span>
+
+                  <div className="cat-pill-label">
+                    <strong>{cat.name}</strong>
+                    <span className="cat-pill-count">({count} items)</span>
+                  </div>
+
+                  <div className="cat-pill-actions">
+                    <button
+                      className="cat-action-btn availability in-stock"
+                      onClick={() => props.onBulkAvailability(cat.id, true)}
+                      title="Mark all items in this category In Stock"
+                      type="button"
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        <Icon name="check" size={12} />
+                        <span>All In</span>
+                      </span>
+                    </button>
+                    <button
+                      className="cat-action-btn availability sold-out"
+                      onClick={() => props.onBulkAvailability(cat.id, false)}
+                      title="Mark all items in this category Sold Out"
+                      type="button"
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        <Icon name="close" size={12} />
+                        <span>All Out</span>
+                      </span>
+                    </button>
+                    <button
+                      className="cat-action-btn"
+                      onClick={() => props.onEditCategory(cat)}
+                      title="Rename Category"
+                      type="button"
+                    >
+                      <IconEdit size={13} />
+                    </button>
+                    <button
+                      className="cat-action-btn danger"
+                      onClick={() => props.onDeleteCategory(cat.id)}
+                      title="Delete Category"
+                      type="button"
+                    >
+                      <IconDelete size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <form className="category-add-form" onSubmit={props.onSaveCategory}>
+            <div className="category-form-inputs">
+              {/* Category Icon Selector */}
+              <div className="category-icon-picker">
+                <span className="icon-picker-label">Icon:</span>
+                <div className="category-icon-preview-box">
+                  <CategoryIcon name={props.categoryIcon || "coffee"} size={20} />
+                </div>
+              </div>
+
+              <input
+                aria-label="Category Name"
+                className="admin-input"
+                maxLength={80}
+                onChange={(e) => props.onCategoryNameChange(e.target.value)}
+                placeholder={props.editingCategoryId ? "Rename category..." : "New category name..."}
+                required
+                value={props.categoryName}
+              />
+            </div>
+
+            {/* Quick Icon Presets */}
+            <div className="category-icon-presets">
+              {CATEGORY_ICON_PRESETS.map((p) => (
+                <button
+                  className={`icon-preset-btn ${props.categoryIcon === p.icon ? "active" : ""}`}
+                  key={p.label}
+                  onClick={() => props.onCategoryIconChange(p.icon)}
+                  title={p.label}
+                  type="button"
+                >
+                  <CategoryIcon name={p.icon} size={17} />
+                </button>
+              ))}
+            </div>
+
+            <div className="category-form-actions">
+              <button className="admin-btn primary" disabled={props.isBusy} type="submit">
+                {props.editingCategoryId ? "Save Category" : "+ Add Category"}
+              </button>
+              {props.editingCategoryId && (
+                <button
+                  className="admin-btn secondary"
+                  onClick={props.onCancelCategory}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
       </section>
 
-      <section className="admin-panel">
-        <div className="admin-panel-heading">
-          <div><span className="eyebrow">Active destinations</span><h3>{props.links.length} links</h3></div>
-        </div>
-        {copyMessage && <p aria-live="polite" className="admin-inline-error">{copyMessage}</p>}
-        {props.links.length ? (
-          <div className="guest-links-list">
-            {props.links.map((link) => (
-              <article className="guest-link-card" key={link.id}>
-                {link.kind === "qr" && (
-                  <a className="qr-download" href={`/api/admin/links/${link.id}/qr`} download={`tabletap-${link.id}.png`}>
-                    <Image alt={`QR code for ${link.table_label || "restaurant"}`} height={78} src={`/api/admin/links/${link.id}/qr`} unoptimized width={78} />
-                    <span>Download QR</span>
-                  </a>
-                )}
-                <div className="guest-link-details">
-                  <span className={link.kind === "qr" ? "link-kind qr-kind" : "link-kind nfc-kind"}>
-                    {link.kind.toUpperCase()}
-                  </span>
-                  <strong>{link.table_label || "Restaurant entrance"}</strong>
-                  <span className="guest-link-url">{link.token}</span>
-                </div>
-                <button
-                  className="admin-text-button"
-                  onClick={() => void copyLink(`${siteOrigin}/go/${link.token}`)}
-                  type="button"
-                >
-                  Copy URL
-                </button>
-                <button
-                  className="admin-text-button danger-action"
-                  disabled={props.isBusy}
-                  onClick={() => props.onDelete(link.id)}
-                  type="button"
-                >
-                  Remove
-                </button>
-              </article>
-            ))}
+      {/* 2. Add / Edit Menu Item Card */}
+      <section className="admin-panel-card" id="item-editor-card">
+        <div className="panel-header">
+          <div>
+            <span className="panel-eyebrow">Step 2: Create &amp; Edit</span>
+            <h2>{props.itemId ? "Edit Menu Dish" : "Add New Dish"}</h2>
           </div>
-        ) : (
-          <p className="admin-empty-message">Create a QR code or NFC destination to get started.</p>
-        )}
+          <p className="panel-desc">
+            Set dish name, price in ₹, image, dietary tags (Veg/Non-Veg, Egg, Jain, Spicy, Bestseller), and optional size pricing variants (e.g. Regular / Large).
+          </p>
+        </div>
+
+        <form className="admin-form-flow" onSubmit={props.onSaveItem}>
+          <div className="form-row-two">
+            <label className="admin-label">
+              Category
+              <select
+                className="admin-input"
+                onChange={(e) =>
+                  props.onItemFormChange({ ...props.itemForm, categoryId: e.target.value })
+                }
+                required
+                value={props.itemForm.categoryId}
+              >
+                <option value="">Select Category</option>
+                {props.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon ? `${c.icon} ` : ""}{c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="admin-label">
+              Dish Name
+              <input
+                className="admin-input"
+                maxLength={120}
+                onChange={(e) =>
+                  props.onItemFormChange({ ...props.itemForm, name: e.target.value })
+                }
+                placeholder="e.g. Truffle Parmesan Fries"
+                required
+                value={props.itemForm.name}
+              />
+            </label>
+          </div>
+
+          <div className="form-row-two">
+            <label className="admin-label">
+              Base Price (₹ INR)
+              <input
+                className="admin-input"
+                min="0"
+                onChange={(e) =>
+                  props.onItemFormChange({ ...props.itemForm, price: e.target.value })
+                }
+                placeholder="249"
+                required
+                step="1"
+                type="number"
+                value={props.itemForm.price}
+              />
+            </label>
+
+            <label className="admin-label">
+              Photo URL <span>(HTTPS Image)</span>
+              <input
+                className="admin-input"
+                onChange={(e) =>
+                  props.onItemFormChange({ ...props.itemForm, imageUrl: e.target.value })
+                }
+                placeholder="https://images.unsplash.com/..."
+                type="url"
+                value={props.itemForm.imageUrl}
+              />
+            </label>
+          </div>
+
+          {props.itemForm.imageUrl && (
+            <div className="item-photo-preview-box">
+              <span className="preview-label">Live Photo Preview:</span>
+              <Image
+                alt="Dish preview"
+                className="item-photo-preview-img"
+                height={80}
+                src={props.itemForm.imageUrl}
+                unoptimized
+                width={80}
+              />
+            </div>
+          )}
+
+          <label className="admin-label">
+            Description
+            <textarea
+              className="admin-textarea"
+              maxLength={800}
+              onChange={(e) =>
+                props.onItemFormChange({ ...props.itemForm, description: e.target.value })
+              }
+              placeholder="Freshly prepared with artisan sourdough, whipped ricotta, and aromatic herbs..."
+              rows={2}
+              value={props.itemForm.description}
+            />
+          </label>
+
+          {/* Quick Dietary Tags */}
+          <div className="form-group-block">
+            <label className="admin-label">Dietary &amp; Special Tags (1-Click Selection)</label>
+            <div className="menu-tag-selector-row">
+              {MENU_TAG_PRESETS.map((tag) => {
+                const isSelected = props.itemForm.dietaryTags.includes(tag.label);
+                return (
+                  <button
+                    className={`tag-toggle-btn ${isSelected ? "selected" : ""}`}
+                    key={tag.label}
+                    onClick={() => toggleTag(tag.label)}
+                    type="button"
+                  >
+                    <span className="tag-color-indicator" style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color, display: "inline-block", marginRight: 6 }} />
+                    <span>{tag.label}</span>
+                    {isSelected && <span className="tag-check" style={{ marginLeft: 6 }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Optional Pricing Variants (Regular / Large, Half / Full) */}
+          <div className="form-group-block pricing-variants-block">
+            <div className="variants-header-row">
+              <div>
+                <label className="admin-label">Pricing Variants <span>(Optional)</span></label>
+                <p className="field-hint">
+                  Specify different portion sizes or options (e.g. Regular: ₹199, Large: ₹299, or Half: ₹120, Full: ₹220).
+                </p>
+              </div>
+              <button
+                className="admin-btn secondary small"
+                onClick={addPricingVariant}
+                type="button"
+              >
+                + Add Portion / Size
+              </button>
+            </div>
+
+            {props.itemForm.pricingVariants.length > 0 && (
+              <div className="pricing-variants-builder">
+                {props.itemForm.pricingVariants.map((variant, index) => (
+                  <div className="variant-row" key={index}>
+                    <input
+                      aria-label="Variant Name"
+                      className="admin-input variant-name"
+                      onChange={(e) =>
+                        updatePricingVariant(index, e.target.value, variant.price)
+                      }
+                      placeholder="e.g. Regular, Large, Half, Full"
+                      value={variant.name}
+                    />
+                    <div className="variant-price-wrap">
+                      <span className="price-prefix">₹</span>
+                      <input
+                        aria-label="Variant Price"
+                        className="admin-input variant-price"
+                        min="0"
+                        onChange={(e) =>
+                          updatePricingVariant(index, variant.name, Number(e.target.value))
+                        }
+                        placeholder="Price"
+                        type="number"
+                        value={variant.price || ""}
+                      />
+                    </div>
+                    <button
+                      className="variant-delete-btn"
+                      onClick={() => removePricingVariant(index)}
+                      title="Remove Variant"
+                      type="button"
+                    >
+                      <Icon name="close" size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="form-row-two align-center">
+            <label className="admin-checkbox-label">
+              <input
+                checked={props.itemForm.isAvailable}
+                onChange={(e) =>
+                  props.onItemFormChange({ ...props.itemForm, isAvailable: e.target.checked })
+                }
+                type="checkbox"
+              />
+              <span>Available to order (Uncheck if sold out for the day)</span>
+            </label>
+
+            <div className="editor-form-actions">
+              {props.itemId && (
+                <button
+                  className="admin-btn secondary"
+                  onClick={props.onCancelItem}
+                  type="button"
+                >
+                  Cancel Edit
+                </button>
+              )}
+              <button className="admin-btn primary" disabled={props.isBusy} type="submit">
+                {props.itemId ? "Save Dish Changes" : "+ Add Dish to Menu"}
+              </button>
+            </div>
+          </div>
+        </form>
       </section>
-      <span className="sr-only">Restaurant: {props.restaurantId}</span>
-    </>
+
+      {/* 3. Items List with Search, Filter & Easy Reordering */}
+      <section className="admin-panel-card">
+        <div className="panel-header-split">
+          <div>
+            <span className="panel-eyebrow">All Items ({props.items.length})</span>
+            <h2>Menu Dishes &amp; Instant Stock Control</h2>
+          </div>
+
+          <div className="list-filters-cluster">
+            <select
+              className="admin-input filter-cat-select"
+              onChange={(e) => setSelectedFilterCategory(e.target.value)}
+              value={selectedFilterCategory}
+            >
+              <option value="all">All Categories</option>
+              {props.categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icon ? `${c.icon} ` : ""}{c.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              className="admin-input search-items-input"
+              onChange={(e) => setItemSearchQuery(e.target.value)}
+              placeholder="Search dishes..."
+              type="search"
+              value={itemSearchQuery}
+            />
+          </div>
+        </div>
+
+        {/* Category Bulk Controls when a category is selected */}
+        {selectedFilterCategory !== "all" && (
+          <div className="filter-bulk-banner">
+            <span>
+              Quick actions for <strong>{props.categories.find((c) => c.id === selectedFilterCategory)?.name}</strong>:
+            </span>
+            <div className="bulk-btn-group">
+              <button
+                className="admin-btn secondary small"
+                onClick={() => props.onBulkAvailability(selectedFilterCategory, true)}
+                type="button"
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <Icon name="check" size={13} />
+                  <span>Mark All In Stock</span>
+                </span>
+              </button>
+              <button
+                className="admin-btn secondary small danger"
+                onClick={() => props.onBulkAvailability(selectedFilterCategory, false)}
+                type="button"
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <Icon name="close" size={13} />
+                  <span>Mark All Sold Out</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="admin-items-table-wrap">
+          {visibleItems.length === 0 ? (
+            <p className="admin-empty-text">No items found matching this filter.</p>
+          ) : (
+            <div className="admin-items-list">
+              {visibleItems.map((item, index) => {
+                const categoryObj = props.categories.find((c) => c.id === item.category_id);
+                return (
+                  <div className="admin-item-card-row" key={item.id}>
+                    {/* Reorder Buttons */}
+                    <div className="item-reorder-buttons">
+                      <button
+                        aria-label="Move dish up"
+                        className="reorder-arrow"
+                        disabled={index === 0}
+                        onClick={() => props.onMoveItem(item.id, -1)}
+                        title="Move Up"
+                        type="button"
+                      >
+                        <Icon name="chevron-up" size={11} />
+                      </button>
+                      <button
+                        aria-label="Move dish down"
+                        className="reorder-arrow"
+                        disabled={index === visibleItems.length - 1}
+                        onClick={() => props.onMoveItem(item.id, 1)}
+                        title="Move Down"
+                        type="button"
+                      >
+                        <Icon name="chevron-down" size={11} />
+                      </button>
+                    </div>
+
+                    {item.image_url ? (
+                      <Image
+                        alt=""
+                        className="item-thumbnail"
+                        height={52}
+                        src={item.image_url}
+                        unoptimized
+                        width={52}
+                      />
+                    ) : (
+                      <div className="item-thumbnail placeholder">
+                        <CategoryIcon name={categoryObj?.name || "plates"} size={22} />
+                      </div>
+                    )}
+
+                    <div className="item-main-details">
+                      <div className="item-title-line">
+                        <strong>{item.name}</strong>
+                        <span className="item-category-tag">
+                          {categoryObj?.icon ? `${categoryObj.icon} ` : ""}{categoryObj?.name || "Category"}
+                        </span>
+                        {item.pricing_variants && item.pricing_variants.length > 0 && (
+                          <span className="item-variant-badge">
+                            {item.pricing_variants.length} sizes
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="item-dietary-pills-row">
+                        {item.dietary_tags.map((t) => (
+                          <span className="item-mini-tag" key={t}>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="item-price-col">
+                      <strong>₹{item.price}</strong>
+                    </div>
+
+                    {/* 1-Click Availability Toggle */}
+                    <div className="item-stock-toggle-col">
+                      <button
+                        className={`item-availability-pill ${item.is_available ? "in-stock" : "sold-out"}`}
+                        onClick={() => props.onToggleAvailability(item)}
+                        title="Click to toggle Available / Sold Out"
+                        type="button"
+                      >
+                        {item.is_available ? "● In Stock" : "○ Sold Out"}
+                      </button>
+                    </div>
+
+                    <div className="item-row-actions">
+                      <button
+                        className="item-btn edit"
+                        onClick={() => props.onEditItem(item)}
+                        type="button"
+                      >
+                        <IconEdit size={13} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        className="item-btn delete"
+                        onClick={() => props.onDeleteItem(item.id)}
+                        type="button"
+                      >
+                        <IconDelete size={13} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
+/* =========================================================================
+   D. TABLES & QR COMPONENT
+   ========================================================================= */
 type ManagedTable = {
   id: string;
   table_number: string;
@@ -991,16 +2068,21 @@ type ManagedTable = {
 function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
   const [tables, setTables] = useState<ManagedTable[]>([]);
   const [tableNumber, setTableNumber] = useState("");
+  const [tablePrefix, setTablePrefix] = useState("Table ");
   const [bulkStart, setBulkStart] = useState("1");
-  const [bulkEnd, setBulkEnd] = useState("20");
-  const [editingId, setEditingId] = useState("");
-  const [editingNumber, setEditingNumber] = useState("");
-  const [infoTableId, setInfoTableId] = useState("");
+  const [bulkEnd, setBulkEnd] = useState("10");
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [siteOrigin, setSiteOrigin] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [downloadingTableId, setDownloadingTableId] = useState<string | null>(null);
+
+  function handleDownloadQr(id: string) {
+    setDownloadingTableId(id);
+    setTimeout(() => setDownloadingTableId(null), 2000);
+  }
 
   const loadTables = useCallback(async () => {
     setIsLoading(true);
@@ -1009,12 +2091,12 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
       const response = await fetch(`/api/admin/${restaurantId}/tables`, {
         cache: "no-store",
       });
-      const result = await parseResponse(response) as {
+      const result = (await parseResponse(response)) as {
         tables: ManagedTable[];
         siteOrigin: string;
       };
       setTables(result.tables);
-      setSiteOrigin(result.siteOrigin);
+      setSiteOrigin(result.siteOrigin || window.location.origin);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load tables.");
     } finally {
@@ -1027,54 +2109,35 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
     void loadTables();
   }, [loadTables]);
 
-  async function sendTableRequest(
-    method: "POST" | "PATCH" | "DELETE",
-    body: unknown,
-    successMessage: string,
-  ) {
+  async function createSingleTable(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tableNumber.trim()) return;
     setIsBusy(true);
     setError("");
     setMessage("");
     try {
-      const isDelete = method === "DELETE";
-      const url = `/api/admin/${restaurantId}/tables${isDelete ? `?tableId=${encodeURIComponent(String((body as { id: string }).id))}` : ""}`;
-      const response = await fetch(url, {
-        method,
-        ...(isDelete
-          ? {}
-          : {
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            }),
+      const response = await fetch(`/api/admin/${restaurantId}/tables`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableNumber: tableNumber.trim() }),
       });
       await parseResponse(response);
-      setMessage(successMessage);
+      setMessage(`Table "${tableNumber.trim()}" created successfully.`);
+      setTableNumber("");
       await loadTables();
-      return true;
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Could not save table changes.");
-      return false;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not create table.");
     } finally {
       setIsBusy(false);
     }
   }
 
-  async function createTable(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const success = await sendTableRequest(
-      "POST",
-      { tableNumber },
-      "Table created. Its guest URL is ready to copy or print.",
-    );
-    if (success) setTableNumber("");
-  }
-
-  async function createBulk(event: React.FormEvent<HTMLFormElement>) {
+  async function createBulkTables(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const start = Number(bulkStart);
     const end = Number(bulkEnd);
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end - start >= 200) {
-      setError("Enter a valid whole-number range of up to 200 tables.");
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+      setError("Please enter a valid numeric range.");
       return;
     }
     setIsBusy(true);
@@ -1084,203 +2147,547 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
       const response = await fetch(`/api/admin/${restaurantId}/tables`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "bulk", start, end }),
+        body: JSON.stringify({ action: "bulk", start, end, prefix: tablePrefix }),
       });
-      const result = await parseResponse(response) as { created: number };
-      setMessage(`${result.created} table${result.created === 1 ? "" : "s"} created. Existing table numbers were left unchanged.`);
+      const result = (await parseResponse(response)) as { created: number };
+      setMessage(`${result.created} table(s) generated.`);
       await loadTables();
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Could not create tables.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not generate tables.");
     } finally {
       setIsBusy(false);
     }
   }
 
-  async function updateTable(id: string, updates: { tableNumber?: string; isActive?: boolean }) {
-    const success = await sendTableRequest(
-      "PATCH",
-      { id, ...updates },
-      updates.isActive === undefined ? "Table details updated." : "Table status updated.",
-    );
-    if (success) {
-      setEditingId("");
-      setEditingNumber("");
+  async function toggleTableActive(table: ManagedTable) {
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/admin/${restaurantId}/tables`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: table.id, isActive: !table.is_active }),
+      });
+      await parseResponse(response);
+      await loadTables();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not update table.");
+    } finally {
+      setIsBusy(false);
     }
   }
 
-  async function deleteTable(table: ManagedTable) {
-    if (!window.confirm(`Delete Table ${table.table_number}? Existing feedback and loyalty records will remain, without a table assignment.`)) {
-      return;
+  async function deleteTable(id: string) {
+    if (!window.confirm("Delete this table? Its QR code and NFC tag will stop working.")) return;
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/admin/${restaurantId}/tables?tableId=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      await parseResponse(response);
+      await loadTables();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not delete table.");
+    } finally {
+      setIsBusy(false);
     }
-    await sendTableRequest("DELETE", { id: table.id }, "Table deleted.");
   }
 
-  function guestUrl(code: string) {
-    return `${siteOrigin}/t/${code}`;
+  async function copyNfcUrl(url: string, code: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2500);
+    } catch {
+      // fallback
+    }
   }
 
   return (
-    <>
-      <div className="admin-page-heading">
-        <div>
-          <span className="eyebrow">One destination per seat</span>
-          <h2>Tables</h2>
-        </div>
-      </div>
-      {error && <p aria-live="assertive" className="admin-alert error">{error}</p>}
-      {message && !error && <p aria-live="polite" className="admin-alert success">{message}</p>}
-      <div className="table-create-grid">
-        <section className="admin-panel">
-          <div className="admin-panel-heading">
-            <div><span className="eyebrow">Add one</span><h3>Create a table</h3></div>
+    <div className="admin-tables-section">
+      {error && <div className="admin-alert-banner error">{error}</div>}
+      {message && <div className="admin-alert-banner success">{message}</div>}
+
+      <div className="admin-panel-card">
+        <div className="panel-header">
+          <div>
+            <span className="panel-eyebrow">Smart Dining Space</span>
+            <h2>Dining Tables, QR Codes &amp; NFC URLs</h2>
           </div>
-          <form className="table-create-form" onSubmit={(event) => void createTable(event)}>
-            <label className="admin-field">
-              Table number or name
+          <p className="panel-desc">
+            Each table gets its own unique digital menu URL (`/t/[code]`). Download QR codes for table stands or copy NFC URLs to program tap-to-order NFC tags.
+          </p>
+        </div>
+
+        {/* Add Tables row */}
+        <div className="table-create-forms-grid">
+          {/* Add single table with custom naming */}
+          <form className="single-table-form" onSubmit={createSingleTable}>
+            <h4>Add Single Table (Custom Name)</h4>
+            <div className="input-with-btn">
               <input
-                autoComplete="off"
-                maxLength={80}
-                onChange={(event) => setTableNumber(event.target.value)}
-                placeholder="e.g. 12, A1, Patio-3"
+                className="admin-input"
+                maxLength={40}
+                onChange={(e) => setTableNumber(e.target.value)}
+                placeholder="e.g. Table 12, Patio 3, Rooftop VIP"
                 required
                 value={tableNumber}
               />
-            </label>
-            <button className="admin-button primary" disabled={isBusy} type="submit">Add table</button>
+              <button className="admin-btn primary" disabled={isBusy} type="submit">
+                + Add Table
+              </button>
+            </div>
+            <span className="field-hint">Supports any naming style (Patio, Booth, Balcony, Terrace).</span>
           </form>
-        </section>
-        <section className="admin-panel">
-          <div className="admin-panel-heading">
-            <div><span className="eyebrow">Create a range</span><h3>Bulk create tables</h3></div>
+
+          {/* Bulk add with custom prefix */}
+          <form className="bulk-table-form" onSubmit={createBulkTables}>
+            <h4>Generate Range of Tables</h4>
+            <div className="bulk-inputs-cluster">
+              <input
+                aria-label="Table Prefix"
+                className="admin-input small prefix-input"
+                maxLength={20}
+                onChange={(e) => setTablePrefix(e.target.value)}
+                placeholder="Prefix (e.g. Patio )"
+                value={tablePrefix}
+              />
+              <div className="range-inputs-row">
+                <input
+                  aria-label="Start table"
+                  className="admin-input small"
+                  min="1"
+                  onChange={(e) => setBulkStart(e.target.value)}
+                  type="number"
+                  value={bulkStart}
+                />
+                <span>to</span>
+                <input
+                  aria-label="End table"
+                  className="admin-input small"
+                  min="1"
+                  onChange={(e) => setBulkEnd(e.target.value)}
+                  type="number"
+                  value={bulkEnd}
+                />
+                <button className="admin-btn secondary" disabled={isBusy} type="submit">
+                  Generate Range
+                </button>
+              </div>
+            </div>
+            <span className="field-hint">e.g. &ldquo;Patio &rdquo; from 1 to 10 generates Patio 1, Patio 2...</span>
+          </form>
+        </div>
+
+        {/* Table Cards Grid */}
+        <div className="tables-grid-display">
+          {isLoading ? (
+            <p className="admin-loading-indicator">Loading tables...</p>
+          ) : tables.length === 0 ? (
+            <p className="admin-empty-text">No tables yet. Add your first table above.</p>
+          ) : (
+            tables.map((table, tIdx) => {
+              const guestUrl = `${siteOrigin}/t/${table.unique_code}`;
+              const isCopied = copiedCode === table.unique_code;
+              const isDownloading = downloadingTableId === table.id;
+              const staggerClass = `motion-stagger-${Math.min(tIdx + 1, 8)}`;
+
+              return (
+                <div
+                  className={`table-admin-card motion-fade-rise ${staggerClass} ${table.is_active ? "active" : "disabled"}`}
+                  key={table.id}
+                >
+                  <div className="table-card-top">
+                    <span className="table-card-number">{table.table_number}</span>
+                    <button
+                      className={`table-status-pill ${table.is_active ? "active" : "inactive"}`}
+                      onClick={() => void toggleTableActive(table)}
+                      title="Toggle active status"
+                      type="button"
+                    >
+                      {table.is_active ? "● Active" : "○ Inactive"}
+                    </button>
+                  </div>
+
+                  <div className="table-qr-link-preview">
+                    <span className="nfc-label">NFC / QR Link:</span>
+                    <code className="nfc-url-text">{guestUrl}</code>
+                  </div>
+
+                  <div className="table-card-actions">
+                    <Link
+                      className="table-link-btn"
+                      href={guestUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Open Menu ↗
+                    </Link>
+                    <a
+                      className="table-link-btn secondary"
+                      download={`${table.table_number.replace(/\s+/g, "-")}-QR.png`}
+                      href={`/api/admin/tables/${table.id}/qr`}
+                      onClick={() => handleDownloadQr(table.id)}
+                    >
+                      {isDownloading ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <Icon name="check" size={13} animate="draw" />
+                          <span>Saved</span>
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <Icon name="download" size={13} />
+                          <span>Download QR</span>
+                        </span>
+                      )}
+                    </a>
+                    <button
+                      className={`table-link-btn nfc-copy ${isCopied ? "copied" : ""}`}
+                      onClick={() => void copyNfcUrl(guestUrl, table.unique_code)}
+                      title="Copy URL for NFC tag programming"
+                      type="button"
+                    >
+                      {isCopied ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <Icon name="check" size={13} />
+                          <span>Copied!</span>
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <Icon name="copy" size={13} />
+                          <span>Copy NFC</span>
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      className="table-delete-icon"
+                      onClick={() => void deleteTable(table.id)}
+                      title="Delete Table"
+                      type="button"
+                    >
+                      <Icon name="close" size={12} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   E. LOYALTY SETTINGS COMPONENT
+   ========================================================================= */
+function LoyaltySettingsSection({
+  restaurant,
+  restaurantId,
+  isBusy,
+  onSave,
+}: {
+  restaurant: AdminDashboardData["restaurant"];
+  restaurantId: string;
+  isBusy: boolean;
+  onSave: (payload: Record<string, unknown>) => Promise<unknown>;
+}) {
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(restaurant.loyalty_enabled);
+  const [loyaltyType, setLoyaltyType] = useState<"stamps" | "points">(
+    restaurant.loyalty_type || "stamps",
+  );
+  const [rewardGoal, setRewardGoal] = useState(restaurant.loyalty_reward_goal || 5);
+  const [rewardDescription, setRewardDescription] = useState(
+    restaurant.loyalty_reward_description || "Free Dessert or Chai",
+  );
+  const [pointsPerAmount, setPointsPerAmount] = useState(
+    restaurant.loyalty_points_per_amount || 10,
+  );
+  const [pointsGoal, setPointsGoal] = useState(
+    restaurant.loyalty_points_goal || 200,
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await onSave({
+      loyaltyEnabled,
+      loyaltyType,
+      loyaltyRewardGoal: rewardGoal,
+      loyaltyRewardDescription: rewardDescription.trim(),
+      loyaltyPointsPerAmount: pointsPerAmount,
+      loyaltyPointsGoal: pointsGoal,
+    });
+  }
+
+  return (
+    <div className="admin-loyalty-layout">
+      <div className="admin-panel-card">
+        <div className="panel-header">
+          <div>
+            <span className="panel-eyebrow">Customer Retention</span>
+            <h2>Loyalty Program Rules &amp; Rewards</h2>
           </div>
-          <form className="table-bulk-form" onSubmit={(event) => void createBulk(event)}>
-            <label className="admin-field">
-              From
+          <p className="panel-desc">
+            Turn one-time diners into regular customers using an instant phone-number reward card. Choose between a Stamp Card or Points System.
+          </p>
+        </div>
+
+        <form className="admin-form-flow" onSubmit={handleSubmit}>
+          {/* Main Enable Switch */}
+          <div className="loyalty-toggle-block">
+            <label className="loyalty-switch-label">
               <input
-                inputMode="numeric"
-                onChange={(event) => setBulkStart(event.target.value)}
-                required
-                type="number"
-                min="1"
-                max="1000000"
-                value={bulkStart}
+                checked={loyaltyEnabled}
+                onChange={(e) => setLoyaltyEnabled(e.target.checked)}
+                type="checkbox"
               />
+              <span className="switch-text">
+                <strong>Enable Customer Loyalty Program</strong>
+                <small>Guests enter their 10-digit mobile number at the table to earn rewards.</small>
+              </span>
             </label>
-            <label className="admin-field">
-              To
+          </div>
+
+          {/* Loyalty Type Selector */}
+          <div className="form-group-block">
+            <label className="admin-label">Loyalty Program Type</label>
+            <div className="loyalty-type-cards-row">
+              <label
+                className={`loyalty-type-card ${loyaltyType === "stamps" ? "selected" : ""}`}
+              >
+                <input
+                  checked={loyaltyType === "stamps"}
+                  name="loyaltyType"
+                  onChange={() => setLoyaltyType("stamps")}
+                  type="radio"
+                  value="stamps"
+                />
+                <div className="type-card-content">
+                  <span className="type-card-icon"><Icon name="tag" size={20} /></span>
+                  <strong>Stamp Card</strong>
+                  <p>1 stamp per visit. Simple and best for cafes, bakeries, and quick bites.</p>
+                </div>
+              </label>
+
+              <label
+                className={`loyalty-type-card ${loyaltyType === "points" ? "selected" : ""}`}
+              >
+                <input
+                  checked={loyaltyType === "points"}
+                  name="loyaltyType"
+                  onChange={() => setLoyaltyType("points")}
+                  type="radio"
+                  value="points"
+                />
+                <div className="type-card-content">
+                  <span className="type-card-icon"><Icon name="loyalty" size={20} /></span>
+                  <strong>Points System</strong>
+                  <p>Earn points based on bill amount. Best for fine dining and family restaurants.</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Conditional Rules */}
+          {loyaltyType === "stamps" ? (
+            <div className="form-row-two">
+              <label className="admin-label">
+                Reward Goal (Visits / Stamps)
+                <input
+                  className="admin-input"
+                  max={20}
+                  min={2}
+                  onChange={(e) => setRewardGoal(Number(e.target.value))}
+                  required
+                  type="number"
+                  value={rewardGoal}
+                />
+                <span className="field-hint">Diners unlock their reward after this many visits (typically 5).</span>
+              </label>
+
+              <div className="stamp-preview-box">
+                <span className="preview-label">Visual Stamp Card Preview:</span>
+                <div className="preview-stamps-grid">
+                  {Array.from({ length: Math.min(rewardGoal, 10) }).map((_, i) => (
+                    <div className={`mini-stamp-slot ${i === 0 ? "filled" : ""}`} key={i}>
+                      {i === 0 ? "★" : i + 1}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="form-row-two">
+              <label className="admin-label">
+                Points Earned per ₹100 Spent
+                <input
+                  className="admin-input"
+                  max={100}
+                  min={1}
+                  onChange={(e) => setPointsPerAmount(Number(e.target.value))}
+                  required
+                  type="number"
+                  value={pointsPerAmount}
+                />
+                <span className="field-hint">e.g. 10 points for every ₹100 spent.</span>
+              </label>
+
+              <label className="admin-label">
+                Points Required to Redeem Reward
+                <input
+                  className="admin-input"
+                  max={10000}
+                  min={10}
+                  onChange={(e) => setPointsGoal(Number(e.target.value))}
+                  required
+                  type="number"
+                  value={pointsGoal}
+                />
+                <span className="field-hint">e.g. 200 points to unlock reward.</span>
+              </label>
+            </div>
+          )}
+
+          {/* Reward Description */}
+          <div className="form-group-block">
+            <label className="admin-label">
+              Reward Description (What the Diner Gets)
               <input
-                inputMode="numeric"
-                onChange={(event) => setBulkEnd(event.target.value)}
+                className="admin-input"
+                maxLength={120}
+                onChange={(e) => setRewardDescription(e.target.value)}
+                placeholder="e.g. Free Dessert or Coffee, ₹150 off next order"
                 required
-                type="number"
-                min="1"
-                max="1000000"
-                value={bulkEnd}
+                value={rewardDescription}
               />
+              <span className="field-hint">
+                This exact text is displayed to guests on their digital loyalty card when they reach the goal.
+              </span>
             </label>
-            <button className="admin-button secondary" disabled={isBusy} type="submit">Create range</button>
-          </form>
-        </section>
+          </div>
+
+          <div className="form-submit-row">
+            <button className="admin-btn primary large" disabled={isBusy} type="submit">
+              {isBusy ? "Saving..." : "Save Loyalty Settings"}
+            </button>
+          </div>
+        </form>
       </div>
 
-      <section className="admin-panel table-list-panel">
-        <div className="admin-panel-heading">
-          <div><span className="eyebrow">Guest destinations</span><h3>{tables.length} table{tables.length === 1 ? "" : "s"}</h3></div>
-        </div>
-        {isLoading ? (
-          <p className="admin-loading">Loading tables...</p>
-        ) : tables.length ? (
-          <div className="managed-table-list">
-            {tables.map((table) => (
-              <article className="managed-table-card" key={table.id}>
-                <div className="managed-table-heading">
-                  {editingId === table.id ? (
-                    <form
-                      className="managed-table-edit"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        void updateTable(table.id, { tableNumber: editingNumber });
-                      }}
-                    >
-                      <input
-                        aria-label="Table number"
-                        autoFocus
-                        maxLength={80}
-                        onChange={(event) => setEditingNumber(event.target.value)}
-                        required
-                        value={editingNumber}
-                      />
-                      <button className="admin-text-button" disabled={isBusy} type="submit">Save</button>
-                      <button className="admin-text-button" onClick={() => setEditingId("")} type="button">Cancel</button>
-                    </form>
-                  ) : (
-                    <div className="managed-table-title">
-                      <strong>Table {table.table_number}</strong>
-                      <span className={table.is_active ? "table-status active" : "table-status inactive"}>
-                        {table.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  )}
-                  {editingId !== table.id && (
-                    <button
-                      className="admin-text-button"
-                      onClick={() => {
-                        setEditingId(table.id);
-                        setEditingNumber(table.table_number);
-                      }}
-                      type="button"
-                    >Edit</button>
-                  )}
-                </div>
-                <div className="managed-table-url">
-                  <span>Guest URL</span>
-                  <a href={guestUrl(table.unique_code)} rel="noreferrer" target="_blank">
-                    {guestUrl(table.unique_code)}
-                  </a>
-                </div>
-                <div className="managed-table-actions">
-                  <a className="admin-button secondary" href={`/api/admin/tables/${table.id}/qr`} download>
-                    Download QR · PNG
-                  </a>
-                  <a className="admin-button secondary" href={`/api/admin/tables/${table.id}/qr?format=svg`} download>
-                    Download QR · SVG
-                  </a>
-                  <button
-                    className="admin-button secondary"
-                    onClick={() => setInfoTableId(infoTableId === table.id ? "" : table.id)}
-                    type="button"
-                  >
-                    NFC Tag Info
-                  </button>
-                  <button
-                    className="admin-button secondary"
-                    disabled={isBusy}
-                    onClick={() => void updateTable(table.id, { isActive: !table.is_active })}
-                    type="button"
-                  >
-                    {table.is_active ? "Deactivate" : "Activate"}
-                  </button>
-                  <button
-                    className="admin-text-button danger-action"
-                    disabled={isBusy}
-                    onClick={() => void deleteTable(table)}
-                    type="button"
-                  >Delete</button>
-                </div>
-                {infoTableId === table.id && (
-                  <div className="nfc-tag-info">
-                    <strong>Write this URL to the NFC tag</strong>
-                    <a href={guestUrl(table.unique_code)}>{guestUrl(table.unique_code)}</a>
-                    {!table.is_active && <span>This table is inactive; the link will not open until it is activated.</span>}
-                  </div>
-                )}
-              </article>
-            ))}
+      {/* Member Management Insights */}
+      <LoyaltyAdminSection key={restaurantId} restaurantId={restaurantId} />
+    </div>
+  );
+}
+
+/* =========================================================================
+   F. REVIEWS & FEEDBACK COMPONENT
+   ========================================================================= */
+function ReviewsSection({
+  restaurant,
+  restaurantId,
+  isBusy,
+  onSave,
+}: {
+  restaurant: AdminDashboardData["restaurant"];
+  restaurantId: string;
+  isBusy: boolean;
+  onSave: (payload: Record<string, unknown>) => Promise<unknown>;
+}) {
+  const [googleReviewUrl, setGoogleReviewUrl] = useState(
+    restaurant.google_review_url ?? "",
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await onSave({
+      googleReviewUrl: googleReviewUrl.trim() || null,
+    });
+  }
+
+  return (
+    <div className="admin-reviews-layout">
+      {/* 1. Google Review Setup Card */}
+      <div className="admin-panel-card">
+        <div className="panel-header">
+          <div>
+            <span className="panel-eyebrow">Raipur Reputation</span>
+            <h2>Google Review Link &amp; Rating Booster</h2>
           </div>
-        ) : (
-          <p className="admin-empty-message">Add a table to generate its unique guest URL, QR code, and NFC destination.</p>
-        )}
-      </section>
-    </>
+          <p className="panel-desc">
+            Direct your happy diners straight to your Google Maps listing to leave 5-star ratings.
+          </p>
+        </div>
+
+        <form className="admin-form-flow" onSubmit={handleSubmit}>
+          <label className="admin-label">
+            Your Google Maps Review Shortlink
+            <div className="input-with-btn">
+              <input
+                className="admin-input"
+                onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                placeholder="https://g.page/r/... or https://maps.google.com/..."
+                type="url"
+                value={googleReviewUrl}
+              />
+              {googleReviewUrl && (
+                <a
+                  className="admin-btn secondary"
+                  href={googleReviewUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Test Link ↗
+                </a>
+              )}
+            </div>
+            <span className="field-hint">
+              Find this in your Google Business Profile under &apos;Ask for reviews&apos;.
+            </span>
+          </label>
+
+          <div className="form-submit-row">
+            <button className="admin-btn primary" disabled={isBusy} type="submit">
+              {isBusy ? "Saving..." : "Update Google Review Link"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* 2. Internal Feedback Log */}
+      <FeedbackAdminSection key={restaurantId} restaurantId={restaurantId} />
+    </div>
+  );
+}
+
+/* =========================================================================
+   G. ACCOUNT SETTINGS COMPONENT
+   ========================================================================= */
+function AccountSection({ userEmail }: { userEmail: string }) {
+  return (
+    <div className="admin-panel-card">
+      <div className="panel-header">
+        <div>
+          <span className="panel-eyebrow">Signed In</span>
+          <h2>Account Details</h2>
+        </div>
+      </div>
+      <div className="account-info-box">
+        <p>
+          Logged in as: <strong>{userEmail}</strong>
+        </p>
+        <p>Your account is configured with administrator privileges for connected Raipur restaurant workspaces.</p>
+        <div className="account-actions-row">
+          <Link className="admin-btn secondary" href="/admin/forgot-password">
+            Send Password Reset Link
+          </Link>
+          <Link className="admin-btn secondary" href="/privacy">
+            Privacy Policy
+          </Link>
+          <Link className="admin-btn secondary" href="/terms">
+            Terms of Service
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

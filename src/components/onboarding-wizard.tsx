@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/icons";
 import { trackProductEvent } from "@/lib/product-analytics";
 
 type SetupRestaurant = {
@@ -145,13 +146,16 @@ export default function OnboardingWizard({ email }: { email: string }) {
           <p aria-live="polite" className="admin-loading">Loading your setup...</p>
         ) : step === 5 ? (
           <div className="onboarding-ready">
-            <span className="onboarding-check" aria-hidden="true">✓</span>
+            <span className="onboarding-check" aria-hidden="true"><Icon name="check" size={24} /></span>
             <span className="eyebrow">Your table is ready</span>
             <h1>You&apos;re ready to welcome guests.</h1>
             <p>Your guest page is live. Share your QR code and keep your menu fresh from the dashboard.</p>
             <div className="onboarding-ready-actions">
               <Link className="button button-dark" href={`/${restaurantSlug}`} target="_blank" rel="noreferrer">
-                View guest page ↗
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span>View guest page</span>
+                  <Icon name="external-link" size={13} />
+                </span>
               </Link>
               <Link className="button button-light" href="/admin">Open dashboard</Link>
             </div>

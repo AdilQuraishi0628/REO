@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Icon } from "@/components/icons";
 import { trackProductEvent } from "@/lib/product-analytics";
 
 type AnalyticsRange = "7d" | "30d" | "all";
@@ -62,7 +63,7 @@ function LoadingRows({ count = 3 }: { count?: number }) {
   return (
     <div aria-label="Loading" className="admin-skeleton-list" role="status">
       {Array.from({ length: count }, (_, index) => (
-        <span className="admin-skeleton-row" key={index} />
+        <span className="admin-skeleton-row motion-skeleton" key={index} />
       ))}
     </div>
   );
@@ -231,8 +232,12 @@ export function FeedbackAdminSection({ restaurantId }: { restaurantId: string })
                 <article className="feedback-admin-row" key={entry.id}>
                   <div className="feedback-admin-main">
                     <div className="feedback-rating-line">
-                      <span className="admin-rating-stars" aria-label={`${entry.rating} out of 5 stars`}>
-                        {"★".repeat(entry.rating)}<span>{"★".repeat(5 - entry.rating)}</span>
+                      <span className="admin-rating-stars" aria-label={`${entry.rating} out of 5 stars`} style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} style={{ color: i < entry.rating ? "#722F37" : "#B7A89A" }}>
+                            <Icon name="star" size={13} />
+                          </span>
+                        ))}
                       </span>
                       <time dateTime={entry.created_at}>
                         {new Date(entry.created_at).toLocaleString()}

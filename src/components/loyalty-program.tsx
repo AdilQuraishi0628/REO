@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/icons";
 import { trackProductEvent } from "@/lib/product-analytics";
 import { normalizeIndianPhone } from "@/lib/indian-phone";
 
 type LoyaltyProgramProps = {
   restaurantId: string;
   restaurantName: string;
+  rewardGoal: number;
   tableId?: string | null;
 };
 
@@ -34,6 +36,7 @@ function ArrowIcon() {
 export default function LoyaltyProgram({
   restaurantId,
   restaurantName,
+  rewardGoal,
   tableId = null,
 }: LoyaltyProgramProps) {
   const [fullName, setFullName] = useState("");
@@ -94,11 +97,11 @@ export default function LoyaltyProgram({
         <span className="eyebrow">A little something for coming back</span>
         <h2>Good visits<br />add <em>up.</em></h2>
         <p>
-          Join {restaurantName}&apos;s table. Collect five stamps and enjoy a
+          Join {restaurantName}&apos;s table. Collect {rewardGoal} stamps and enjoy a
           little treat on us.
         </p>
         <div className="loyalty-perk">
-          <span aria-hidden="true">✳</span>
+          <span aria-hidden="true"><Icon name="star" size={13} /></span>
           <span>Your card stays right in your phone&apos;s wallet.</span>
         </div>
       </div>
@@ -107,7 +110,7 @@ export default function LoyaltyProgram({
         {member ? (
           <div aria-live="polite" className="loyalty-member-card">
             <div className="member-card-top">
-              <span className="member-card-mark">✳</span>
+              <span className="member-card-mark"><Icon name="loyalty" size={20} /></span>
               <div>
                 <span className="eyebrow">Your loyalty card</span>
                 <h3>{restaurantName}</h3>
@@ -124,7 +127,7 @@ export default function LoyaltyProgram({
                   className={index < member.stamps ? "stamp-dot earned" : "stamp-dot"}
                   key={index}
                 >
-                  {index < member.stamps ? "✳" : ""}
+                  {index < member.stamps ? <Icon name="star" size={12} /> : ""}
                 </span>
               ))}
             </div>

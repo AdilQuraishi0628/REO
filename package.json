@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "icons:audit": "node scripts/audit-icons.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

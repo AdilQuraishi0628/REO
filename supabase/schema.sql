@@ -12,24 +12,68 @@ create table if not exists public.restaurants (
   hours text not null default '',
   hero_image text not null default '',
   initials text not null default '',
+  wifi_name text,
   wifi_ssid text not null default '',
   wifi_password text not null default '',
   google_review_url text,
   logo_url text,
   primary_color text not null default '#536543',
+  loyalty_enabled boolean not null default true,
+  loyalty_reward_goal integer not null default 5 check (loyalty_reward_goal between 2 and 20),
+  enable_call_waiter boolean not null default true,
+  enable_request_bill boolean not null default true,
+  enable_wifi boolean not null default true,
   is_published boolean not null default false,
   onboarding_step smallint not null default 0 check (onboarding_step between 0 and 4),
   created_at timestamptz not null default now()
 );
 
 alter table public.restaurants
+  add column if not exists tagline text not null default '',
+  add column if not exists description text not null default '',
+  add column if not exists address text not null default '',
+  add column if not exists city text not null default '',
+  add column if not exists phone text not null default '',
+  add column if not exists hours text not null default '',
+  add column if not exists hero_image text not null default '',
+  add column if not exists initials text not null default '',
+  add column if not exists wifi_name text,
   add column if not exists wifi_ssid text not null default '',
   add column if not exists wifi_password text not null default '',
   add column if not exists google_review_url text,
   add column if not exists logo_url text,
   add column if not exists primary_color text not null default '#536543',
+  add column if not exists loyalty_enabled boolean not null default true,
+  add column if not exists loyalty_reward_goal integer not null default 5
+    check (loyalty_reward_goal between 2 and 20),
+  add column if not exists enable_call_waiter boolean not null default true,
+  add column if not exists enable_request_bill boolean not null default true,
+  add column if not exists enable_wifi boolean not null default true,
+  add column if not exists secondary_color text not null default '#C84B16',
+  add column if not exists instagram_url text,
+  add column if not exists enable_menu boolean not null default true,
+  add column if not exists enable_ordering boolean not null default true,
+  add column if not exists enable_feedback boolean not null default true,
+  add column if not exists enable_google_reviews boolean not null default true,
+  add column if not exists loyalty_type text not null default 'stamps',
+  add column if not exists loyalty_reward_description text not null default 'Complimentary treat or beverage',
+  add column if not exists loyalty_points_per_amount integer not null default 10,
+  add column if not exists loyalty_points_goal integer not null default 100,
   add column if not exists onboarding_step smallint not null default 0
     check (onboarding_step between 0 and 4);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'restaurant-assets',
+  'restaurant-assets',
+  true,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
 
 do $$
 begin
@@ -49,11 +93,17 @@ create table if not exists public.menu_categories (
   id uuid primary key default gen_random_uuid(),
   restaurant_id uuid not null references public.restaurants(id) on delete cascade,
   name text not null,
+  icon text,
+  image_url text,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   unique (restaurant_id, name),
   unique (restaurant_id, id)
 );
+
+alter table public.menu_categories
+  add column if not exists icon text,
+  add column if not exists image_url text;
 
 create table if not exists public.menu_items (
   id uuid primary key default gen_random_uuid(),
@@ -62,6 +112,7 @@ create table if not exists public.menu_items (
   name text not null,
   description text not null default '',
   price numeric(8, 2) not null check (price >= 0),
+  pricing_variants jsonb,
   image_url text,
   dietary_tags text[] not null default '{}',
   is_available boolean not null default true,
@@ -71,6 +122,9 @@ create table if not exists public.menu_items (
     references public.menu_categories(restaurant_id, id)
     on delete cascade
 );
+
+alter table public.menu_items
+  add column if not exists pricing_variants jsonb;
 
 create table if not exists public.tables (
   id uuid primary key default gen_random_uuid(),
@@ -85,6 +139,57 @@ create table if not exists public.tables (
 
 create index if not exists tables_restaurant_created_idx
   on public.tables (restaurant_id, created_at);
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null references public.restaurants(id) on delete cascade,
+  table_id uuid references public.tables(id) on delete set null,
+  table_number text not null check (char_length(table_number) between 1 and 80),
+  customer_phone text check (
+    customer_phone is null or customer_phone ~ '^\+91[6-9][0-9]{9}$'
+  ),
+  status text not null default 'pending'
+    check (status in ('pending', 'preparing', 'ready', 'served', 'cancelled')),
+  total_amount numeric(10, 2) not null check (total_amount >= 0),
+  notes text check (notes is null or char_length(notes) <= 1000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  menu_item_id uuid references public.menu_items(id) on delete set null,
+  item_name text not null check (char_length(item_name) between 1 and 160),
+  quantity integer not null check (quantity between 1 and 20),
+  unit_price numeric(8, 2) not null check (unit_price >= 0),
+  total_price numeric(10, 2) not null check (total_price >= 0),
+  special_instructions text check (
+    special_instructions is null or char_length(special_instructions) <= 500
+  ),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists orders_restaurant_created_idx
+  on public.orders (restaurant_id, created_at desc);
+create index if not exists orders_restaurant_status_created_idx
+  on public.orders (restaurant_id, status, created_at desc);
+create index if not exists order_items_order_created_idx
+  on public.order_items (order_id, created_at);
+
+create table if not exists public.service_requests (
+  id uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null references public.restaurants(id) on delete cascade,
+  table_id uuid references public.tables(id) on delete set null,
+  table_number text not null check (char_length(table_number) between 1 and 80),
+  type text not null check (type in ('call_waiter', 'request_bill')),
+  status text not null default 'pending' check (status in ('pending', 'acknowledged', 'completed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists service_requests_restaurant_status_idx
+  on public.service_requests (restaurant_id, status, created_at desc);
 
 create table if not exists public.feedback (
   id uuid primary key default gen_random_uuid(),
@@ -126,8 +231,8 @@ create table if not exists public.loyalty_members (
   full_name text not null check (char_length(full_name) between 1 and 100),
   email text check (char_length(email) between 3 and 254),
   phone text check (phone is null or phone ~ '^\+91[6-9][0-9]{9}$'),
-  stamps integer not null default 0 check (stamps between 0 and 5),
-  reward_goal integer not null default 5 check (reward_goal = 5),
+  stamps integer not null default 0,
+  reward_goal integer not null default 5,
   created_at timestamptz not null default now()
 );
 
@@ -135,6 +240,14 @@ alter table public.loyalty_members
   alter column email drop not null,
   add column if not exists phone text check (phone is null or phone ~ '^\+91[6-9][0-9]{9}$'),
   add column if not exists table_id uuid references public.tables(id) on delete set null;
+
+alter table public.loyalty_members
+  drop constraint if exists loyalty_members_stamps_check,
+  drop constraint if exists loyalty_members_reward_goal_check,
+  add constraint loyalty_members_stamps_check
+    check (stamps between 0 and reward_goal),
+  add constraint loyalty_members_reward_goal_check
+    check (reward_goal between 2 and 20);
 
 create table if not exists public.restaurant_admins (
   restaurant_id uuid not null references public.restaurants(id) on delete cascade,
@@ -190,6 +303,8 @@ alter table public.guest_links enable row level security;
 alter table public.restaurant_page_views enable row level security;
 alter table public.rate_limit_buckets enable row level security;
 alter table public.tables enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant select on public.restaurants, public.menu_categories, public.menu_items
@@ -207,6 +322,10 @@ grant all on public.restaurant_admins to service_role;
 revoke all on public.guest_links from public, anon, authenticated;
 grant all on public.guest_links to service_role;
 grant all on public.tables to service_role;
+revoke all on public.orders, public.order_items from public, anon, authenticated;
+grant select on public.orders to authenticated;
+grant select on public.order_items to authenticated;
+grant all on public.orders, public.order_items to service_role;
 grant all on public.restaurants, public.menu_categories, public.menu_items
   to service_role;
 
@@ -422,6 +541,28 @@ create policy "Restaurant admins can manage their tables"
   using (public.is_restaurant_admin(restaurant_id))
   with check (public.is_restaurant_admin(restaurant_id));
 
+drop policy if exists "Restaurant admins can read their orders" on public.orders;
+create policy "Restaurant admins can read their orders"
+  on public.orders for select to authenticated
+  using (public.is_restaurant_admin(restaurant_id));
+
+drop policy if exists "Restaurant admins can update their orders" on public.orders;
+create policy "Restaurant admins can update their orders"
+  on public.orders for update to authenticated
+  using (public.is_restaurant_admin(restaurant_id))
+  with check (public.is_restaurant_admin(restaurant_id));
+
+drop policy if exists "Restaurant admins can read their order items" on public.order_items;
+create policy "Restaurant admins can read their order items"
+  on public.order_items for select to authenticated
+  using (
+    exists (
+      select 1 from public.orders
+      where orders.id = order_items.order_id
+        and public.is_restaurant_admin(orders.restaurant_id)
+    )
+  );
+
 drop policy if exists "Restaurant admins can read their menu items"
   on public.menu_items;
 create policy "Restaurant admins can read their menu items"
@@ -478,6 +619,145 @@ grant update (resolved_at) on public.feedback to authenticated;
 grant select on public.restaurant_admins to authenticated;
 grant select, insert, update, delete on public.guest_links to authenticated;
 grant select, insert, update, delete on public.tables to authenticated;
+grant select on public.orders to authenticated;
+grant select on public.order_items to authenticated;
+grant update (status, updated_at) on public.orders to authenticated;
+
+create or replace function public.place_guest_order(
+  p_restaurant_id uuid,
+  p_table_id uuid,
+  p_unique_code text,
+  p_customer_phone text,
+  p_notes text,
+  p_items jsonb
+)
+returns table (id uuid, total_amount numeric, table_number text, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  guest_table public.tables%rowtype;
+  new_order_id uuid;
+  order_total numeric(10, 2) := 0;
+  requested_item jsonb;
+  menu_item public.menu_items%rowtype;
+  item_quantity integer;
+  item_instructions text;
+begin
+  if p_items is null or jsonb_typeof(p_items) <> 'array' then
+    raise exception 'invalid_items' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_items) < 1 or jsonb_array_length(p_items) > 30 then
+    raise exception 'invalid_items' using errcode = '22023';
+  end if;
+
+  if p_notes is not null and char_length(p_notes) > 1000 then
+    raise exception 'invalid_notes' using errcode = '22023';
+  end if;
+
+  if p_customer_phone is not null
+     and p_customer_phone !~ '^\+91[6-9][0-9]{9}$' then
+    raise exception 'invalid_phone' using errcode = '22023';
+  end if;
+
+  select * into guest_table
+  from public.tables
+  where tables.id = p_table_id
+    and tables.restaurant_id = p_restaurant_id
+    and tables.unique_code = p_unique_code
+    and tables.is_active = true;
+
+  if not found or not exists (
+    select 1 from public.restaurants
+    where restaurants.id = p_restaurant_id and restaurants.is_published = true
+  ) then
+    raise exception 'table_unavailable' using errcode = 'P0002';
+  end if;
+
+  for requested_item in select value from jsonb_array_elements(p_items)
+  loop
+    if jsonb_typeof(requested_item) <> 'object'
+       or requested_item->>'menuItemId' is null
+       or requested_item->>'quantity' is null
+       or (requested_item->>'menuItemId') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+       or (requested_item->>'quantity') !~ '^[0-9]+$' then
+      raise exception 'invalid_item' using errcode = '22023';
+    end if;
+
+    item_quantity := (requested_item->>'quantity')::integer;
+    item_instructions := nullif(btrim(requested_item->>'specialInstructions'), '');
+    if item_quantity < 1 or item_quantity > 20
+       or (item_instructions is not null and char_length(item_instructions) > 500) then
+      raise exception 'invalid_item' using errcode = '22023';
+    end if;
+
+    select * into menu_item
+    from public.menu_items
+    where menu_items.id = (requested_item->>'menuItemId')::uuid
+      and menu_items.restaurant_id = p_restaurant_id
+      and menu_items.is_available = true;
+
+    if not found then
+      raise exception 'menu_item_unavailable' using errcode = 'P0002';
+    end if;
+
+    order_total := order_total + (menu_item.price * item_quantity);
+  end loop;
+
+  insert into public.orders (
+    restaurant_id, table_id, table_number, customer_phone, total_amount, notes
+  )
+  values (
+    p_restaurant_id, guest_table.id, guest_table.table_number,
+    p_customer_phone, order_total, nullif(btrim(p_notes), '')
+  )
+  returning orders.id into new_order_id;
+
+  for requested_item in select value from jsonb_array_elements(p_items)
+  loop
+    item_quantity := (requested_item->>'quantity')::integer;
+    item_instructions := nullif(btrim(requested_item->>'specialInstructions'), '');
+    select * into menu_item
+    from public.menu_items
+    where menu_items.id = (requested_item->>'menuItemId')::uuid
+      and menu_items.restaurant_id = p_restaurant_id;
+
+    insert into public.order_items (
+      order_id, menu_item_id, item_name, quantity, unit_price, total_price,
+      special_instructions
+    )
+    values (
+      new_order_id, menu_item.id, menu_item.name, item_quantity,
+      menu_item.price, menu_item.price * item_quantity, item_instructions
+    );
+  end loop;
+
+  return query
+    select orders.id, orders.total_amount, orders.table_number, orders.created_at
+    from public.orders
+    where orders.id = new_order_id;
+end;
+$$;
+
+revoke all on function public.place_guest_order(uuid, uuid, text, text, text, jsonb)
+  from public, anon, authenticated;
+grant execute on function public.place_guest_order(uuid, uuid, text, text, text, jsonb)
+  to service_role;
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'orders'
+     ) then
+    alter publication supabase_realtime add table public.orders;
+  end if;
+end;
+$$;
 
 insert into public.restaurants (
   id, slug, name, tagline, description, address, city, phone, hours,

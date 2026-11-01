@@ -30,10 +30,21 @@ async function readInput(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const isNew = searchParams.get("new") === "true";
+
   const context = await getAdminContext();
   if (!context) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ complete: false, restaurant: null });
+    }
     return NextResponse.json({ error: "Verify your email and sign in to continue." }, { status: 401 });
   }
+
+  if (isNew) {
+    return NextResponse.json({ complete: false, restaurant: null });
+  }
+
   if (!context.restaurantIds.length) {
     return NextResponse.json({ complete: false, restaurant: null });
   }
@@ -75,13 +86,43 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const context = await getAdminContext();
-  if (!context) {
-    return NextResponse.json({ error: "Verify your email and sign in to continue." }, { status: 401 });
-  }
   const input = await readInput(request);
   if (!input || typeof input.action !== "string") {
     return NextResponse.json({ error: "Check the setup details and try again." }, { status: 400 });
+  }
+
+  const context = await getAdminContext();
+  if (!context) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      // Demo simulated onboarding response
+      if (input.action === "create-restaurant") {
+        const name = text(input.name, 120) || "My Raipur Cafe";
+        const slug = slugify(name) || "my-raipur-cafe";
+        return NextResponse.json({
+          restaurant: {
+            id: "demo-new-rest-" + Date.now(),
+            slug,
+            name,
+            is_published: false,
+            onboarding_step: 1,
+          },
+          step: 1,
+        }, { status: 201 });
+      }
+      if (input.action === "menu") return NextResponse.json({ step: 2 });
+      if (input.action === "wifi") return NextResponse.json({ step: 3 });
+      if (input.action === "qr") {
+        return NextResponse.json({
+          step: 4,
+          guestUrl: "http://localhost:3000/t/demo-table-1",
+          linkId: "demo-link-1",
+        });
+      }
+      if (input.action === "finish") {
+        return NextResponse.json({ slug: "juniper-and-rye", complete: true });
+      }
+    }
+    return NextResponse.json({ error: "Verify your email and sign in to continue." }, { status: 401 });
   }
   const service = context.serviceClient;
 

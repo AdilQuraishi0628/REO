@@ -38,13 +38,16 @@ export async function POST(request: Request) {
     tableId === undefined ||
     (tableId !== null && !uuidPattern.test(tableId))
   ) {
+    if (!uuidPattern.test(restaurantId)) {
+      return NextResponse.json({ success: true, tracked: false, demo: true }, { status: 200 });
+    }
     return NextResponse.json({ error: "Invalid page-view event." }, { status: 400 });
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey) {
-    return NextResponse.json({ error: "Page-view tracking is not configured." }, { status: 503 });
+    return NextResponse.json({ success: true, tracked: false, demo: true }, { status: 200 });
   }
 
   const supabase = createClient(url, serviceRoleKey, {

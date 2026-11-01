@@ -38,9 +38,14 @@ To update an existing project, run the current [`supabase/schema.sql`](./supabas
 in the Supabase SQL editor. It is designed to be re-run and adds the current
 columns, tables, functions, grants, and row-level policies without replacing
 existing menu data. Keep service-role credentials on the server only.
-Alternatively, apply [`supabase/migrations/20261028134200_table_level_guest_support.sql`](./supabase/migrations/20261028134200_table_level_guest_support.sql)
-to an existing installation to add table-specific guest destinations and table
-attribution for feedback, loyalty enrollments, and page views.
+Alternatively, apply these migrations in order to an existing installation:
+
+1. [`supabase/migrations/20261028134200_table_level_guest_support.sql`](./supabase/migrations/20261028134200_table_level_guest_support.sql)
+2. [`supabase/migrations/20261028155800_guest_orders_and_kitchen.sql`](./supabase/migrations/20261028155800_guest_orders_and_kitchen.sql)
+3. [`supabase/migrations/20261028170000_restaurant_profile_and_loyalty.sql`](./supabase/migrations/20261028170000_restaurant_profile_and_loyalty.sql)
+
+The final migration enables restaurant logo uploads and configurable loyalty
+programs, including enabling/disabling the program and setting its stamp goal.
 
 ## Wallet pass setup
 
@@ -137,6 +142,11 @@ downloadable high-resolution PNG and SVG QR codes. NFC tags should be written
 with the same table-specific guest URL. The older `/go/<token>` and
 restaurant-level guest routes continue to work. Set `NEXT_PUBLIC_SITE_URL` to
 the canonical public origin when creating links in deployments behind a proxy.
+Table guest pages also support a cart and order placement; orders are sent to the
+staff kitchen display at `/kitchen` and are paid at the restaurant. Staff access
+requires a verified account with restaurant membership. The order migration
+enables Supabase Realtime for order updates; configure Realtime on the Supabase
+project for new orders to appear without refreshing.
 
 The Analytics section reports guest page opens, loyalty joins, feedback volume,
 average rating, and high-rating review prompts across the selected date range.

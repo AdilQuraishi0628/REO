@@ -20,11 +20,27 @@ export type Database = {
         hours: string;
         hero_image: string;
         initials: string;
-        wifi_ssid: string;
-        wifi_password: string;
+        wifi_name: string | null;
+        wifi_ssid: string | null;
+        wifi_password: string | null;
         google_review_url: string | null;
         logo_url: string | null;
         primary_color: string;
+        secondary_color: string;
+        instagram_url: string | null;
+        enable_menu: boolean;
+        enable_ordering: boolean;
+        enable_feedback: boolean;
+        enable_google_reviews: boolean;
+        loyalty_enabled: boolean;
+        loyalty_type: string;
+        loyalty_reward_goal: number;
+        loyalty_reward_description: string;
+        loyalty_points_per_amount: number;
+        loyalty_points_goal: number;
+        enable_call_waiter: boolean;
+        enable_request_bill: boolean;
+        enable_wifi: boolean;
         is_published: boolean;
         onboarding_step: number;
         created_at: string;
@@ -38,6 +54,8 @@ export type Database = {
         id: string;
         restaurant_id: string;
         name: string;
+        icon: string | null;
+        image_url: string | null;
         sort_order: number;
         created_at: string;
       }>;
@@ -48,6 +66,7 @@ export type Database = {
         name: string;
         description: string;
         price: number;
+        pricing_variants: { name: string; price: number }[] | null;
         image_url: string | null;
         dietary_tags: string[];
         is_available: boolean;
@@ -60,6 +79,39 @@ export type Database = {
         table_number: string;
         unique_code: string;
         is_active: boolean;
+        created_at: string;
+        updated_at: string;
+      }>;
+      orders: Table<{
+        id: string;
+        restaurant_id: string;
+        table_id: string | null;
+        table_number: string;
+        customer_phone: string | null;
+        status: "pending" | "preparing" | "ready" | "served" | "cancelled";
+        total_amount: number;
+        notes: string | null;
+        created_at: string;
+        updated_at: string;
+      }>;
+      order_items: Table<{
+        id: string;
+        order_id: string;
+        menu_item_id: string | null;
+        item_name: string;
+        quantity: number;
+        unit_price: number;
+        total_price: number;
+        special_instructions: string | null;
+        created_at: string;
+      }>;
+      service_requests: Table<{
+        id: string;
+        restaurant_id: string;
+        table_id: string | null;
+        table_number: string;
+        type: "call_waiter" | "request_bill";
+        status: "pending" | "acknowledged" | "completed";
         created_at: string;
         updated_at: string;
       }>;
@@ -132,8 +184,32 @@ export type Database = {
         Args: { p_restaurant_id: string; p_member_id: string };
         Returns: { id: string; stamps: number; reward_goal: number }[];
       };
+      place_guest_order: {
+        Args: {
+          p_restaurant_id: string;
+          p_table_id: string;
+          p_unique_code: string;
+          p_customer_phone: string | null;
+          p_notes: string | null;
+          p_items: Json;
+        };
+        Returns: {
+          id: string;
+          total_amount: number;
+          table_number: string;
+          created_at: string;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
 };
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];

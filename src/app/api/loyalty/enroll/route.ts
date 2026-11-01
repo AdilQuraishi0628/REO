@@ -83,6 +83,21 @@ export async function POST(request: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
+    if (restaurantId.startsWith("00000000-0000-4000-8000-")) {
+      return NextResponse.json(
+        {
+          member: {
+            id: `demo-member-${Date.now()}`,
+            fullName,
+            stamps: 1,
+            rewardGoal: 5,
+          },
+          appleWalletUrl: null,
+          googleWalletUrl: null,
+        },
+        { status: 201 },
+      );
+    }
     return NextResponse.json(
       { error: "Loyalty enrollment is not configured yet. Please try again later." },
       { status: 503 },
@@ -94,7 +109,7 @@ export async function POST(request: Request) {
   });
   const { data: restaurant, error: restaurantError } = await supabase
     .from("restaurants")
-    .select("id, name")
+    .select("id, name, loyalty_enabled, loyalty_reward_goal")
     .eq("id", restaurantId)
     .eq("is_published", true)
     .maybeSingle();
@@ -108,6 +123,9 @@ export async function POST(request: Request) {
   }
   if (!restaurant) {
     return NextResponse.json({ error: "This restaurant is not available." }, { status: 404 });
+  }
+  if (!restaurant.loyalty_enabled) {
+    return NextResponse.json({ error: "This restaurant's loyalty program is currently unavailable." }, { status: 410 });
   }
 
   if (tableId) {
@@ -138,7 +156,7 @@ export async function POST(request: Request) {
     email: email || null,
     phone,
     stamps: 0,
-    reward_goal: LOYALTY_REWARD_GOAL,
+    reward_goal: restaurant.loyalty_reward_goal ?? LOYALTY_REWARD_GOAL,
   };
 
   let googleWalletUrl: string | null;
@@ -163,7 +181,7 @@ export async function POST(request: Request) {
     email: email || null,
     phone,
     stamps: 0,
-    reward_goal: LOYALTY_REWARD_GOAL,
+    reward_goal: restaurant.loyalty_reward_goal ?? LOYALTY_REWARD_GOAL,
   });
 
   if (insertError) {

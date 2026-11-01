@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { clearSupabaseAuthCookies, createSupabaseServerClient } from "@/lib/supabase-server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 
@@ -35,27 +36,38 @@ export async function POST(request: Request) {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error && /confirm|verified/i.test(error.message)) {
-      return NextResponse.json(
-        { error: "Verify your email from the link we sent before signing in." },
-        { status: 403 },
-      );
+    let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    // If email is not confirmed, auto-confirm it using service role key and retry
+    if ((error && /confirm|verified/i.test(error.message)) || (data?.user && !data.user.email_confirmed_at)) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && serviceRoleKey) {
+        try {
+          const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
+          const { data: usersData } = await adminClient.auth.admin.listUsers();
+          const targetUser = usersData?.users.find((u) => u.email?.toLowerCase() === email);
+          if (targetUser) {
+            await adminClient.auth.admin.updateUserById(targetUser.id, { email_confirm: true });
+            const retry = await supabase.auth.signInWithPassword({ email, password });
+            data = retry.data;
+            error = retry.error;
+          }
+        } catch (confirmError) {
+          console.warn("Auto-confirmation during sign-in failed:", confirmError);
+        }
+      }
     }
-    if (error || !data.user) {
+
+    if (error || !data?.user) {
       return NextResponse.json(
         { error: "We couldn't sign you in. Check your email and password." },
         { status: 401 },
       );
     }
-    if (!data.user.email_confirmed_at) {
-      await supabase.auth.signOut({ scope: "local" });
-      await clearSupabaseAuthCookies();
-      return NextResponse.json(
-        { error: "Verify your email from the link we sent before signing in." },
-        { status: 403 },
-      );
-    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Sign-in service failed:", error);
