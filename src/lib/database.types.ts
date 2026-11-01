@@ -41,6 +41,13 @@ export type Database = {
         enable_call_waiter: boolean;
         enable_request_bill: boolean;
         enable_wifi: boolean;
+        enable_reservations: boolean;
+        reservation_opening_time: string;
+        reservation_closing_time: string;
+        reservation_slot_duration: number;
+        reservation_max_party_size: number;
+        reservation_max_days_advance: number;
+        reservation_auto_confirm: boolean;
         is_published: boolean;
         onboarding_step: number;
         created_at: string;
@@ -93,6 +100,7 @@ export type Database = {
         notes: string | null;
         created_at: string;
         updated_at: string;
+        status_updated_at: string;
       }>;
       order_items: Table<{
         id: string;
@@ -112,6 +120,20 @@ export type Database = {
         table_number: string;
         type: "call_waiter" | "request_bill";
         status: "pending" | "acknowledged" | "completed";
+        created_at: string;
+        updated_at: string;
+      }>;
+      reservations: Table<{
+        id: string;
+        restaurant_id: string;
+        guest_name: string;
+        phone: string;
+        party_size: number;
+        reservation_date: string;
+        reservation_time: string;
+        table_id: string | null;
+        notes: string | null;
+        status: "pending" | "confirmed" | "seated" | "completed" | "cancelled" | "no_show";
         created_at: string;
         updated_at: string;
       }>;
