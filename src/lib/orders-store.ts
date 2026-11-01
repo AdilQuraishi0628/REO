@@ -13,8 +13,10 @@ export type DemoOrderItem = {
 export type DemoOrder = {
   id: string;
   restaurant_id: string;
-  table_id: string;
-  table_number: string;
+  table_id?: string | null;
+  table_number?: string | null;
+  order_type?: "dine_in" | "takeaway";
+  order_code?: string | null;
   customer_phone: string | null;
   status: "pending" | "preparing" | "ready" | "served" | "delivered" | "cancelled";
   total_amount: number;

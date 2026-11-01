@@ -6,6 +6,8 @@ import type { Json, Database } from "@/lib/database.types";
 import { addDemoOrder, demoOrdersStore } from "@/lib/orders-store";
 import { demoRestaurants } from "@/lib/restaurant-data";
 import { broadcastToKitchen } from "@/lib/realtime-broadcast";
+import { generateOrderCode } from "@/lib/order-code";
+
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -52,11 +54,15 @@ export async function POST(request: Request) {
   const restaurantId = typeof input.restaurantId === "string" ? input.restaurantId : "";
   const tableId = typeof input.tableId === "string" ? input.tableId : "";
   const uniqueCode = typeof input.uniqueCode === "string" ? input.uniqueCode : "";
-  const tableLabel = typeof input.tableLabel === "string" ? input.tableLabel : "Table 1";
+  const rawOrderType = typeof input.orderType === "string" ? input.orderType.trim().toLowerCase() : "";
+  const orderType: "dine_in" | "takeaway" = rawOrderType === "takeaway" ? "takeaway" : "dine_in";
+  const rawTableLabel = typeof input.tableLabel === "string" ? input.tableLabel.trim() : "";
+  const tableLabel = rawTableLabel || (orderType === "takeaway" ? "Takeaway" : null);
   const notes = optionalText(input.notes, 1000);
   const phoneInput = optionalText(input.phone, 24);
   const phone =
     phoneInput && phoneInput !== null ? normalizeIndianPhone(phoneInput) : null;
+  const orderCode = generateOrderCode();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -154,8 +160,10 @@ export async function POST(request: Request) {
 
     const newOrder = addDemoOrder({
       restaurant_id: restaurantId || "00000000-0000-4000-8000-000000000001",
-      table_id: tableId,
+      table_id: tableId || null,
       table_number: tableLabel,
+      order_type: orderType,
+      order_code: orderCode,
       customer_phone: phone,
       status: "pending",
       total_amount: total,
@@ -166,6 +174,8 @@ export async function POST(request: Request) {
     void broadcastToKitchen(restaurantId || "00000000-0000-4000-8000-000000000001", "new_order", {
       orderId: newOrder.id,
       tableNumber: newOrder.table_number,
+      orderType: newOrder.order_type,
+      orderCode: newOrder.order_code,
       status: newOrder.status,
       totalAmount: newOrder.total_amount,
     });
@@ -196,14 +206,57 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await supabase.rpc("place_guest_order", {
+  // Calculate order total strictly from server-side menu_items
+  let calculatedTotal = 0;
+  const enrichedItems = items.map((it) => {
+    const m = menuItemMap.get(it.menuItemId);
+    const price = m?.price ?? 0;
+    const itemTotal = price * it.quantity;
+    calculatedTotal += itemTotal;
+    return {
+      menu_item_id: it.menuItemId && uuidPattern.test(it.menuItemId) ? it.menuItemId : null,
+      item_name: m?.name ?? "Menu Item",
+      quantity: it.quantity,
+      unit_price: price,
+      total_price: itemTotal,
+      special_instructions: it.specialInstructions,
+    };
+  });
+
+  type RpcCaller = (fn: string, args: Record<string, unknown>) => Promise<{
+    data: Database["public"]["Tables"]["orders"]["Row"][] | null;
+    error: { code: string; message: string } | null;
+  }>;
+  const callRpc = supabase.rpc as unknown as RpcCaller;
+
+  // Call place_guest_order RPC
+  let { data, error } = await callRpc("place_guest_order", {
     p_restaurant_id: restaurantId,
-    p_table_id: tableId,
+    p_table_id: tableId && uuidPattern.test(tableId) ? tableId : null,
     p_unique_code: uniqueCode,
     p_customer_phone: phone,
     p_notes: notes,
-    p_items: items as Json,
+    p_items: items as unknown as Json,
+    p_order_type: orderType,
+    p_order_code: orderCode,
   });
+
+  if (error && (error.message.includes("p_order_code") || error.code === "42883")) {
+    // Retry without p_order_code if migration not yet applied
+    const retry = await callRpc("place_guest_order", {
+      p_restaurant_id: restaurantId,
+      p_table_id: tableId && uuidPattern.test(tableId) ? tableId : null,
+      p_unique_code: uniqueCode,
+      p_customer_phone: phone,
+      p_notes: notes,
+      p_items: items as unknown as Json,
+      p_order_type: orderType,
+    });
+    if (!retry.error) {
+      data = retry.data;
+      error = null;
+    }
+  }
 
   if (error) {
     if (error.code === "22023") {
@@ -219,37 +272,53 @@ export async function POST(request: Request) {
     // Direct table insert fallback if RPC is not installed in database
     if (error.code === "42883" || error.message.includes("does not exist") || error.message.includes("rpc")) {
       try {
-        let calculatedTotal = 0;
-        const enrichedItems = items.map((it) => {
-          const m = menuItemMap.get(it.menuItemId);
-          const price = m?.price ?? 0;
-          const itemTotal = price * it.quantity;
-          calculatedTotal += itemTotal;
-          return {
-            menu_item_id: it.menuItemId && uuidPattern.test(it.menuItemId) ? it.menuItemId : null,
-            item_name: m?.name ?? "Menu Item",
-            quantity: it.quantity,
-            unit_price: price,
-            total_price: itemTotal,
-            special_instructions: it.specialInstructions,
-          };
-        });
+        const insertPayload: Record<string, unknown> = {
+          restaurant_id: restaurantId,
+          table_id: tableId && uuidPattern.test(tableId) ? tableId : null,
+          table_number: tableLabel,
+          order_type: orderType,
+          order_code: orderCode,
+          customer_phone: phone,
+          status: "pending",
+          total_amount: calculatedTotal,
+          notes,
+        };
 
-        const { data: directOrder, error: directOrderError } = await supabase
+        let directInsert = await supabase
           .from("orders")
-          .insert({
-            restaurant_id: restaurantId,
-            table_id: tableId,
-            table_number: tableLabel,
-            customer_phone: phone,
-            status: "pending",
-            total_amount: calculatedTotal,
-            notes,
-          })
-          .select("id, restaurant_id, table_id, table_number, customer_phone, status, total_amount, notes, created_at, updated_at")
+          .insert(insertPayload as unknown as Database["public"]["Tables"]["orders"]["Insert"])
+          .select("*")
           .single();
 
-        if (!directOrderError && directOrder) {
+        if (directInsert.error && /order_code/i.test(directInsert.error.message)) {
+          delete insertPayload.order_code;
+          directInsert = await supabase
+            .from("orders")
+            .insert(insertPayload as unknown as Database["public"]["Tables"]["orders"]["Insert"])
+            .select("*")
+            .single();
+        }
+
+        if (directInsert.error && /order_type/i.test(directInsert.error.message)) {
+          delete insertPayload.order_type;
+          directInsert = await supabase
+            .from("orders")
+            .insert(insertPayload as unknown as Database["public"]["Tables"]["orders"]["Insert"])
+            .select("*")
+            .single();
+        }
+
+        if (directInsert.error && /table_number/i.test(directInsert.error.message) && !insertPayload.table_number) {
+          insertPayload.table_number = orderType === "takeaway" ? "Takeaway" : "Dine-in";
+          directInsert = await supabase
+            .from("orders")
+            .insert(insertPayload as unknown as Database["public"]["Tables"]["orders"]["Insert"])
+            .select("*")
+            .single();
+        }
+
+        if (!directInsert.error && directInsert.data) {
+          const directOrder = directInsert.data;
           if (enrichedItems.length > 0) {
             await supabase.from("order_items").insert(
               enrichedItems.map((it) => ({
@@ -259,9 +328,12 @@ export async function POST(request: Request) {
             );
           }
 
+          const orderRecord = directOrder as Record<string, unknown>;
           void broadcastToKitchen(restaurantId, "new_order", {
             orderId: directOrder.id,
             tableNumber: directOrder.table_number,
+            orderType: orderRecord.order_type || orderType,
+            orderCode: orderRecord.order_code || orderCode,
             status: directOrder.status,
             totalAmount: directOrder.total_amount,
           });
@@ -289,9 +361,12 @@ export async function POST(request: Request) {
     );
   }
 
+  const orderRec = order as Record<string, unknown>;
   void broadcastToKitchen(restaurantId, "new_order", {
     orderId: order.id,
     tableNumber: order.table_number,
+    orderType: orderRec.order_type || orderType,
+    orderCode: orderRec.order_code || orderCode,
     status: "pending",
     totalAmount: order.total_amount,
   });

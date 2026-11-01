@@ -51,8 +51,13 @@ export default function TableGuestExperience({
   categories: initialCategories,
   tableId,
   tableCode,
-  tableLabel = "Table 1",
+  tableLabel,
 }: GuestPageData) {
+  const hasFixedTable = Boolean(tableId && tableCode);
+  const [orderType, setOrderType] = useState<"dine_in" | "takeaway">("dine_in");
+  const [guestTableNumber, setGuestTableNumber] = useState<string>(
+    hasFixedTable ? (tableLabel || "Table 1") : ""
+  );
   const [restaurant, setRestaurant] = useState(initialRestaurant);
   const [categories, setCategories] = useState<MenuCategory[]>(initialCategories);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
@@ -291,7 +296,18 @@ export default function TableGuestExperience({
 
   const trackedView = useRef("");
 
-  const effectiveTableLabel = tableLabel || "Table 1";
+  const effectiveTableLabel = useMemo(() => {
+    if (hasFixedTable) {
+      return tableLabel || "Table 1";
+    }
+    if (orderType === "takeaway") {
+      return "Takeaway";
+    }
+    if (guestTableNumber.trim()) {
+      return guestTableNumber.trim();
+    }
+    return "Dine-in";
+  }, [hasFixedTable, tableLabel, orderType, guestTableNumber]);
 
   useEffect(() => {
     const viewKey = `${restaurant.id}:${tableId ?? ""}:${effectiveTableLabel}`;
@@ -446,9 +462,10 @@ export default function TableGuestExperience({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           restaurantId: restaurant.id,
-          tableId: tableId || "00000000-0000-4000-8000-000000000004",
+          tableId: tableId ?? null,
           tableLabel: effectiveTableLabel,
-          uniqueCode: tableCode || "demo-juniper-t1",
+          orderType: orderType,
+          uniqueCode: tableCode ?? "",
           phone: orderPhone,
           notes: orderNotes,
           items: cart.map((line) => ({
@@ -474,9 +491,10 @@ export default function TableGuestExperience({
       setOrderPhone("");
       setOrderNotes("");
       setAction(null);
-      setOrderSuccess(`Order placed for ${effectiveTableLabel}! Sent straight to the kitchen.`);
+      const resObj = result as { order?: { id?: string; order_code?: string } } | null;
+      const orderRef = resObj?.order?.order_code ? ` (${resObj.order.order_code})` : "";
+      setOrderSuccess(`Order${orderRef} placed for ${effectiveTableLabel}! Sent straight to the kitchen.`);
 
-      const resObj = result as { order?: { id?: string } } | null;
       if (resObj?.order?.id) {
         setActiveOrderId(resObj.order.id);
         persistOrder(restaurant.id, resObj.order.id);
@@ -494,6 +512,12 @@ export default function TableGuestExperience({
 
   async function handleCallWaiter() {
     if (waiterCooldown > 0 || isCallingWaiter) return;
+    const resolvedTable = hasFixedTable ? effectiveTableLabel : guestTableNumber.trim();
+    if (!hasFixedTable && !resolvedTable) {
+      setServiceMessage("Please enter your table number below first so our staff knows where to reach you.");
+      setTimeout(() => setServiceMessage(""), 5000);
+      return;
+    }
     setIsCallingWaiter(true);
     try {
       const response = await fetch("/api/service-request", {
@@ -502,7 +526,7 @@ export default function TableGuestExperience({
         body: JSON.stringify({
           restaurantId: restaurant.id,
           tableId: tableId ?? null,
-          tableLabel: effectiveTableLabel,
+          tableLabel: resolvedTable,
           type: "call_waiter",
         }),
       });
@@ -510,12 +534,12 @@ export default function TableGuestExperience({
       if (!response.ok) {
         throw new Error(data?.error || "Could not call waiter.");
       }
-      setServiceMessage(data?.message || `Waiter has been called for ${effectiveTableLabel}`);
+      setServiceMessage(data?.message || `Waiter has been called for ${resolvedTable}`);
       setWaiterCooldown(90); // 90s anti-spam cooldown
       if (action === "service") setAction(null);
       setTimeout(() => setServiceMessage(""), 6000);
     } catch (err) {
-      setServiceMessage(err instanceof Error ? err.message : `Waiter called for ${effectiveTableLabel}`);
+      setServiceMessage(err instanceof Error ? err.message : `Waiter called for ${resolvedTable}`);
       setWaiterCooldown(90);
       setTimeout(() => setServiceMessage(""), 6000);
     } finally {
@@ -525,6 +549,12 @@ export default function TableGuestExperience({
 
   async function handleRequestBill() {
     if (billCooldown > 0 || isRequestingBill) return;
+    const resolvedTable = hasFixedTable ? effectiveTableLabel : guestTableNumber.trim();
+    if (!hasFixedTable && !resolvedTable) {
+      setServiceMessage("Please enter your table number below first so our staff knows where to bring your bill.");
+      setTimeout(() => setServiceMessage(""), 5000);
+      return;
+    }
     setIsRequestingBill(true);
     try {
       const response = await fetch("/api/service-request", {
@@ -533,7 +563,7 @@ export default function TableGuestExperience({
         body: JSON.stringify({
           restaurantId: restaurant.id,
           tableId: tableId ?? null,
-          tableLabel: effectiveTableLabel,
+          tableLabel: resolvedTable,
           type: "request_bill",
         }),
       });
@@ -541,12 +571,12 @@ export default function TableGuestExperience({
       if (!response.ok) {
         throw new Error(data?.error || "Could not request bill.");
       }
-      setServiceMessage(data?.message || `Bill requested for ${effectiveTableLabel}`);
+      setServiceMessage(data?.message || `Bill requested for ${resolvedTable}`);
       setBillCooldown(90); // 90s anti-spam cooldown
       if (action === "service") setAction(null);
       setTimeout(() => setServiceMessage(""), 6000);
     } catch (err) {
-      setServiceMessage(err instanceof Error ? err.message : `Bill requested for ${effectiveTableLabel}`);
+      setServiceMessage(err instanceof Error ? err.message : `Bill requested for ${resolvedTable}`);
       setBillCooldown(90);
       setTimeout(() => setServiceMessage(""), 6000);
     } finally {
@@ -1249,6 +1279,66 @@ export default function TableGuestExperience({
                       </div>
                     )}
 
+                    {!hasFixedTable && (
+                      <div className="cart-order-type-block" style={{ marginBottom: "1rem", padding: "0.85rem", background: "rgba(114, 47, 55, 0.05)", borderRadius: "10px", border: "1px solid rgba(114, 47, 55, 0.15)" }}>
+                        <label className="sheet-label" style={{ display: "block", marginBottom: "0.4rem", fontWeight: 600 }}>
+                          Order Type
+                        </label>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                          <button
+                            type="button"
+                            onClick={() => setOrderType("dine_in")}
+                            className={`order-type-btn ${orderType === "dine_in" ? "active" : ""}`}
+                            style={{
+                              padding: "0.6rem",
+                              borderRadius: "8px",
+                              border: orderType === "dine_in" ? "2px solid #722F37" : "1px solid #D5C7B7",
+                              background: orderType === "dine_in" ? "#722F37" : "#FFFFFF",
+                              color: orderType === "dine_in" ? "#FFFFFF" : "#2A1A1D",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            🍽️ Dine-in
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrderType("takeaway")}
+                            className={`order-type-btn ${orderType === "takeaway" ? "active" : ""}`}
+                            style={{
+                              padding: "0.6rem",
+                              borderRadius: "8px",
+                              border: orderType === "takeaway" ? "2px solid #722F37" : "1px solid #D5C7B7",
+                              background: orderType === "takeaway" ? "#722F37" : "#FFFFFF",
+                              color: orderType === "takeaway" ? "#FFFFFF" : "#2A1A1D",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            🛍️ Takeaway
+                          </button>
+                        </div>
+
+                        {orderType === "dine_in" && (
+                          <div style={{ marginTop: "0.75rem" }}>
+                            <label className="sheet-label" style={{ display: "block", marginBottom: "0.25rem" }}>
+                              Table Number <span>(Optional if ordering at counter)</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="sheet-input"
+                              placeholder="e.g. Table 4"
+                              value={guestTableNumber}
+                              onChange={(e) => setGuestTableNumber(e.target.value)}
+                              maxLength={30}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="cart-notes-block">
                       <label className="sheet-label">
                         Special Cooking Instructions <span>(Optional)</span>
@@ -1375,8 +1465,31 @@ export default function TableGuestExperience({
             {action === "service" && (
               <div className="sheet-content service-sheet">
                 <p className="service-intro">
-                  Need something at <strong>{effectiveTableLabel}</strong>? Tap below and our staff will be notified instantly.
+                  {hasFixedTable ? (
+                    <>Need something at <strong>{effectiveTableLabel}</strong>? Tap below and our staff will be notified instantly.</>
+                  ) : (
+                    <>Need assistance or your bill? Please specify your table number so staff can assist you.</>
+                  )}
                 </p>
+
+                {!hasFixedTable && (
+                  <div style={{ marginBottom: "1.2rem", padding: "0.85rem", background: "rgba(114, 47, 55, 0.05)", borderRadius: "10px", border: "1px solid rgba(114, 47, 55, 0.15)" }}>
+                    <label className="sheet-label" style={{ display: "block", marginBottom: "0.35rem", fontWeight: 600 }}>
+                      Your Table Number <span style={{ color: "#722F37" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="sheet-input"
+                      placeholder="e.g. Table 4"
+                      value={guestTableNumber}
+                      onChange={(e) => setGuestTableNumber(e.target.value)}
+                      maxLength={30}
+                    />
+                    <small style={{ color: "#665C54", fontSize: "0.8rem", marginTop: "0.3rem", display: "block" }}>
+                      Staff needs your table number to find you in the dining room.
+                    </small>
+                  </div>
+                )}
 
                 <div className="service-options-grid">
                   {showCallWaiter && (

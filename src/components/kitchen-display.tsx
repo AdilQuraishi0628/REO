@@ -864,8 +864,21 @@ export default function KitchenDisplay({
               >
                 <header className="kitchen-order-top">
                   <div className="kitchen-table-number">
-                    <span>Dining Table</span>
-                    <strong>{order.table_number}</strong>
+                    <span>
+                      {order.order_type === "takeaway" || !order.table_number
+                        ? "Takeaway Order"
+                        : "Dining Table"}
+                    </span>
+                    <strong>
+                      {order.order_type === "takeaway" || !order.table_number
+                        ? "Takeaway"
+                        : order.table_number}
+                    </strong>
+                    {order.order_code && (
+                      <span className="kitchen-order-code" style={{ fontSize: "0.85rem", opacity: 0.85, marginLeft: "0.4rem" }}>
+                        {order.order_code}
+                      </span>
+                    )}
                   </div>
                   <div className="kitchen-order-meta">
                     {/* Per-order live duration in current status: "Preparing · 4 min" */}

@@ -7,7 +7,9 @@ import { Icon, IconClock, IconServed } from "@/components/icons";
 export type TrackedOrder = {
   id: string;
   restaurant_id: string;
-  table_number: string;
+  table_number?: string | null;
+  order_type?: "dine_in" | "takeaway";
+  order_code?: string | null;
   status: "pending" | "preparing" | "ready" | "served" | "cancelled";
   total_amount: number;
   notes: string | null;
@@ -253,8 +255,12 @@ export default function LiveOrderTracker({
       <header className="tracker-header">
         <div className="tracker-badge-group">
           <span className={`live-dot ${connectionStatus}`} />
-          <strong className="tracker-order-id">{shortId}</strong>
-          <span className="tracker-table-tag">{order.table_number || tableLabel}</span>
+          <strong className="tracker-order-id">{order.order_code || shortId}</strong>
+          <span className="tracker-table-tag">
+            {order.order_type === "takeaway" || !order.table_number
+              ? "Takeaway"
+              : (order.table_number || tableLabel)}
+          </span>
         </div>
 
         <div className="tracker-header-right">
