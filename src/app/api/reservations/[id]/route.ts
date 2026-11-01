@@ -16,23 +16,29 @@ type RouteContext = {
 export async function GET(_request: Request, { params }: RouteContext) {
   const { id } = await params;
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const isDemo =
+    process.env.DEMO_MODE === "true" ||
+    ((!supabaseUrl || !serviceRoleKey) && id.startsWith("demo-res-"));
+
   if (id.startsWith("demo-res-")) {
-    const found = demoReservationsStore.find((r) => r.id === id);
-    if (!found) {
-      return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
+    if (isDemo) {
+      const found = demoReservationsStore.find((r) => r.id === id);
+      if (!found) {
+        return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
+      }
+      return NextResponse.json({ reservation: found });
     }
-    return NextResponse.json({ reservation: found });
+    return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
   }
 
   if (!uuidPattern.test(id)) {
     return NextResponse.json({ error: "Invalid reservation ID." }, { status: 400 });
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
-    const found = demoReservationsStore.find((r) => r.id === id);
-    return NextResponse.json({ reservation: found ?? null });
+    return NextResponse.json({ error: "Server database configuration missing." }, { status: 500 });
   }
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
@@ -41,7 +47,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
   const { data, error } = await supabase
     .from("reservations")
-    .select("id, restaurant_id, guest_name, phone, party_size, reservation_date, reservation_time, table_id, notes, status, created_at, updated_at")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
 
@@ -62,10 +68,12 @@ export async function GET(_request: Request, { params }: RouteContext) {
     (adminContext && adminContext.restaurantIds.includes(data.restaurant_id))
   );
 
+  const resRecord = data as Record<string, unknown>;
   const safeReservation = isStaffOrAdmin
     ? data
     : {
         id: data.id,
+        reference_code: resRecord.reference_code || null,
         restaurant_id: data.restaurant_id,
         guest_name: data.guest_name,
         party_size: data.party_size,
@@ -112,41 +120,44 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   const tableId = typeof input.tableId === "string" ? input.tableId : undefined;
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const isDemo =
+    process.env.DEMO_MODE === "true" ||
+    ((!supabaseUrl || !serviceRoleKey) && id.startsWith("demo-res-"));
+
   if (id.startsWith("demo-res-")) {
-    if (status) {
-      const updated = updateDemoReservationStatus(id, status, tableId);
-      if (!updated) {
-        return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
+    if (isDemo) {
+      if (status) {
+        const updated = updateDemoReservationStatus(id, status, tableId);
+        if (!updated) {
+          return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
+        }
+        void broadcastToKitchen(updated.restaurant_id, "reservation_status_change", {
+          reservation: updated,
+        });
+        void broadcastToReservation(updated.id, "reservation_status_change", {
+          id: updated.id,
+          status: updated.status,
+          guestName: updated.guest_name,
+          reservationDate: updated.reservation_date,
+          reservationTime: updated.reservation_time,
+          partySize: updated.party_size,
+          tableId: updated.table_id,
+        });
+        return NextResponse.json({ reservation: updated });
       }
-      void broadcastToKitchen(updated.restaurant_id, "reservation_status_change", {
-        reservation: updated,
-      });
-      void broadcastToReservation(updated.id, "reservation_status_change", {
-        id: updated.id,
-        status: updated.status,
-        guestName: updated.guest_name,
-        reservationDate: updated.reservation_date,
-        reservationTime: updated.reservation_time,
-        partySize: updated.party_size,
-        tableId: updated.table_id,
-      });
-      return NextResponse.json({ reservation: updated });
+      return NextResponse.json({ error: "Provide a valid status." }, { status: 400 });
     }
-    return NextResponse.json({ error: "Provide a valid status." }, { status: 400 });
+    return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
   }
 
   if (!uuidPattern.test(id)) {
     return NextResponse.json({ error: "Invalid reservation ID." }, { status: 400 });
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
-    if (status) {
-      const updated = updateDemoReservationStatus(id, status, tableId);
-      return NextResponse.json({ reservation: updated });
-    }
-    return NextResponse.json({ error: "Provide a valid status." }, { status: 400 });
+    return NextResponse.json({ error: "Server database configuration missing." }, { status: 500 });
   }
 
   // Check auth: either staff session or admin context

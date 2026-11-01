@@ -18,6 +18,7 @@ export type ReservationRecord = {
   table_number?: string | null;
   notes: string | null;
   status: ReservationStatus;
+  reference_code?: string | null;
   created_at: string;
   updated_at: string;
 };

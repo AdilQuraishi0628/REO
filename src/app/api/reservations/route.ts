@@ -8,6 +8,7 @@ import {
   addDemoReservation,
 } from "@/lib/reservations-store";
 import { broadcastToKitchen, broadcastToReservation } from "@/lib/realtime-broadcast";
+import { generateReservationReferenceCode } from "@/lib/reservation-code";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -47,9 +48,8 @@ export async function GET(request: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const isDemo =
-    !supabaseUrl ||
-    !serviceRoleKey ||
-    restaurantId.startsWith("00000000-0000-4000-8000-");
+    process.env.DEMO_MODE === "true" ||
+    ((!supabaseUrl || !serviceRoleKey) && restaurantId.startsWith("00000000-0000-4000-8000-"));
 
   if (isDemo) {
     const defaultSlots = generateTimeSlots("11:00", "23:00", 60);
@@ -218,6 +218,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid date or time format." }, { status: 400 });
   }
 
+  // Validate phone format
+  if (phone.replace(/\D/g, "").length < 10) {
+    return NextResponse.json(
+      { error: "Please enter a valid 10-digit mobile number." },
+      { status: 400 },
+    );
+  }
+
   // Validate not in the past
   const todayStr = new Date().toISOString().split("T")[0];
   if (reservationDate < todayStr) {
@@ -227,9 +235,8 @@ export async function POST(request: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const isDemo =
-    !supabaseUrl ||
-    !serviceRoleKey ||
-    restaurantId.startsWith("00000000-0000-4000-8000-");
+    process.env.DEMO_MODE === "true" ||
+    ((!supabaseUrl || !serviceRoleKey) && restaurantId.startsWith("00000000-0000-4000-8000-"));
 
   if (isDemo) {
     // Check demo capacity
@@ -244,11 +251,12 @@ export async function POST(request: Request) {
 
     if (existingCount >= 6) {
       return NextResponse.json(
-        { error: "This time slot is fully booked. Please select another time." },
+        { error: "That slot was just taken. Please select another time or table." },
         { status: 409 },
       );
     }
 
+    const refCode = generateReservationReferenceCode();
     const created = addDemoReservation({
       restaurant_id: restaurantId,
       guest_name: guestName,
@@ -259,6 +267,7 @@ export async function POST(request: Request) {
       table_id: null,
       notes,
       status: "confirmed", // auto-confirm in demo mode
+      reference_code: refCode,
     });
 
     void broadcastToKitchen(restaurantId, "new_reservation", {
@@ -280,14 +289,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid restaurant ID." }, { status: 400 });
   }
 
-  const supabase = createClient<Database>(supabaseUrl!, serviceRoleKey!, {
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({ error: "Server database configuration missing." }, { status: 500 });
+  }
+
+  const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
   // Verify restaurant settings
   const { data: restaurant, error: restErr } = await supabase
     .from("restaurants")
-    .select("id, is_published, enable_reservations, reservation_opening_time, reservation_closing_time, reservation_max_party_size, reservation_max_days_advance, reservation_auto_confirm")
+    .select("id, is_published, enable_reservations, reservation_opening_time, reservation_closing_time, reservation_slot_duration, reservation_max_party_size, reservation_max_days_advance, reservation_auto_confirm")
     .eq("id", restaurantId)
     .maybeSingle();
 
@@ -302,6 +315,29 @@ export async function POST(request: Request) {
     );
   }
 
+  // Validate opening hours
+  const openingTime = restaurant.reservation_opening_time || "11:00:00";
+  const closingTime = restaurant.reservation_closing_time || "23:00:00";
+  if (reservationTime < openingTime || reservationTime > closingTime) {
+    return NextResponse.json(
+      { error: `Reservations are only available between ${openingTime.slice(0, 5)} and ${closingTime.slice(0, 5)}.` },
+      { status: 400 },
+    );
+  }
+
+  // Validate slot duration
+  const slotDuration = (restaurant as Record<string, unknown>).reservation_slot_duration as number || 60;
+  const [openH, openM] = openingTime.split(":").map(Number);
+  const [resH, resM] = reservationTime.split(":").map(Number);
+  const diffMinutes = (resH * 60 + (resM || 0)) - (openH * 60 + (openM || 0));
+  if (diffMinutes < 0 || diffMinutes % slotDuration !== 0) {
+    return NextResponse.json(
+      { error: `Reservations must align with the ${slotDuration}-minute slot interval.` },
+      { status: 400 },
+    );
+  }
+
+  // Validate party size against restaurant policy
   const maxParty = restaurant.reservation_max_party_size || 12;
   if (partySize > maxParty) {
     return NextResponse.json(
@@ -310,6 +346,7 @@ export async function POST(request: Request) {
     );
   }
 
+  // Validate date advance window
   const maxDays = restaurant.reservation_max_days_advance || 30;
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + maxDays);
@@ -321,35 +358,62 @@ export async function POST(request: Request) {
     );
   }
 
-  // Prevent double booking / capacity overflow check
-  const { count: tableCount } = await supabase
-    .from("tables")
-    .select("id", { count: "exact", head: true })
-    .eq("restaurant_id", restaurantId)
-    .eq("is_active", true);
+  const refCode = generateReservationReferenceCode();
 
-  const capacityPerSlot = Math.max(4, tableCount ?? 8);
+  // Call Postgres RPC with advisory lock for atomic double-booking protection
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rpcResult, error: rpcErr } = await (supabase.rpc as any)(
+    "book_table_reservation",
+    {
+      p_restaurant_id: restaurantId,
+      p_guest_name: guestName,
+      p_phone: phone,
+      p_party_size: partySize,
+      p_reservation_date: reservationDate,
+      p_reservation_time: reservationTime,
+      p_notes: notes,
+      p_reference_code: refCode,
+      p_table_id: null,
+    },
+  );
 
-  const { count: existingBookingsCount } = await supabase
-    .from("reservations")
-    .select("id", { count: "exact", head: true })
-    .eq("restaurant_id", restaurantId)
-    .eq("reservation_date", reservationDate)
-    .eq("reservation_time", reservationTime)
-    .in("status", ["pending", "confirmed", "seated"]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let reservation: any = null;
 
-  if ((existingBookingsCount ?? 0) >= capacityPerSlot) {
-    return NextResponse.json(
-      { error: "This time slot is fully booked. Please choose an adjacent slot." },
-      { status: 409 },
-    );
-  }
+  if (rpcErr) {
+    if (rpcErr.code === "23P01" || /slot_already_booked|table_already_booked/i.test(rpcErr.message)) {
+      return NextResponse.json(
+        { error: "That slot was just taken. Please select another time or table." },
+        { status: 409 },
+      );
+    }
 
-  const initialStatus = restaurant.reservation_auto_confirm ? "confirmed" : "pending";
+    // Graceful fallback before book_table_reservation RPC migration is applied
+    const { count: tableCount } = await supabase
+      .from("tables")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", restaurantId)
+      .eq("is_active", true);
 
-  const { data: reservation, error: insertErr } = await supabase
-    .from("reservations")
-    .insert({
+    const capacityPerSlot = Math.max(4, tableCount ?? 8);
+    const { count: existingBookingsCount } = await supabase
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", restaurantId)
+      .eq("reservation_date", reservationDate)
+      .eq("reservation_time", reservationTime)
+      .in("status", ["pending", "confirmed", "seated"]);
+
+    if ((existingBookingsCount ?? 0) >= capacityPerSlot) {
+      return NextResponse.json(
+        { error: "That slot was just taken. Please select another time or table." },
+        { status: 409 },
+      );
+    }
+
+    const initialStatus = restaurant.reservation_auto_confirm ? "confirmed" : "pending";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertPayload: any = {
       restaurant_id: restaurantId,
       guest_name: guestName,
       phone,
@@ -358,16 +422,24 @@ export async function POST(request: Request) {
       reservation_time: reservationTime,
       notes,
       status: initialStatus,
-    })
-    .select()
-    .single();
+      reference_code: refCode,
+    };
 
-  if (insertErr || !reservation) {
-    console.error("Could not create reservation:", insertErr?.message);
-    return NextResponse.json(
-      { error: "We could not confirm your reservation request. Please try again." },
-      { status: 500 },
-    );
+    let insertRes = await supabase.from("reservations").insert(insertPayload).select().single();
+    if (insertRes.error && /reference_code/i.test(insertRes.error.message)) {
+      delete insertPayload.reference_code;
+      insertRes = await supabase.from("reservations").insert(insertPayload).select().single();
+    }
+    if (insertRes.error || !insertRes.data) {
+      console.error("Could not create reservation:", insertRes.error?.message);
+      return NextResponse.json(
+        { error: "We could not confirm your reservation request. Please try again." },
+        { status: 500 },
+      );
+    }
+    reservation = insertRes.data;
+  } else {
+    reservation = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
   }
 
   void broadcastToKitchen(restaurantId, "new_reservation", {
@@ -380,6 +452,7 @@ export async function POST(request: Request) {
     reservationDate: reservation.reservation_date,
     reservationTime: reservation.reservation_time,
     partySize: reservation.party_size,
+    referenceCode: reservation.reference_code,
   });
 
   return NextResponse.json({ reservation }, { status: 201 });

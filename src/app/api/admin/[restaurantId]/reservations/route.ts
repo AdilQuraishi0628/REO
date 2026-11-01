@@ -24,17 +24,32 @@ async function authorize(restaurantId: string) {
         response: NextResponse.json({ error: "Access denied." }, { status: 403 }),
       };
     }
-    if (!supabaseUrl || !serviceRoleKey) return { isDemo: true, isStaff: true };
+    if (!supabaseUrl || !serviceRoleKey) {
+      if (process.env.DEMO_MODE === "true") return { isDemo: true, isStaff: true };
+      return {
+        response: NextResponse.json({ error: "Database configuration error." }, { status: 500 }),
+      };
+    }
     const serviceClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     return { serviceClient, isStaff: true };
   }
 
-  if (!supabaseUrl || !serviceRoleKey) return { isDemo: true };
+  if (!supabaseUrl || !serviceRoleKey) {
+    if (process.env.DEMO_MODE === "true") return { isDemo: true };
+    return {
+      response: NextResponse.json({ error: "Database configuration error." }, { status: 500 }),
+    };
+  }
 
   const context = await getAdminContext();
-  if (!context) return { isDemo: true };
+  if (!context) {
+    if (process.env.DEMO_MODE === "true") return { isDemo: true };
+    return {
+      response: NextResponse.json({ error: "Sign in to continue." }, { status: 401 }),
+    };
+  }
 
   if (!uuidPattern.test(restaurantId) || !canManageRestaurant(context, restaurantId)) {
     return {

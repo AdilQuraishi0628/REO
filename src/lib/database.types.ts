@@ -94,6 +94,8 @@ export type Database = {
         restaurant_id: string;
         table_id: string | null;
         table_number: string;
+        order_type?: "dine_in" | "takeaway";
+        order_code?: string | null;
         customer_phone: string | null;
         status: "pending" | "preparing" | "ready" | "served" | "cancelled";
         total_amount: number;
@@ -134,6 +136,7 @@ export type Database = {
         table_id: string | null;
         notes: string | null;
         status: "pending" | "confirmed" | "seated" | "completed" | "cancelled" | "no_show";
+        reference_code?: string | null;
         created_at: string;
         updated_at: string;
       }>;
