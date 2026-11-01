@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { normalizeIndianPhone } from "@/lib/indian-phone";
 import type { Json, Database } from "@/lib/database.types";
-import { addDemoOrder } from "@/lib/orders-store";
+import { addDemoOrder, demoOrdersStore } from "@/lib/orders-store";
 import { demoRestaurants } from "@/lib/restaurant-data";
+import { broadcastToKitchen } from "@/lib/realtime-broadcast";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -162,12 +163,39 @@ export async function POST(request: Request) {
       items: orderItems,
     });
 
+    void broadcastToKitchen(restaurantId || "00000000-0000-4000-8000-000000000001", "new_order", {
+      orderId: newOrder.id,
+      tableNumber: newOrder.table_number,
+      status: newOrder.status,
+      totalAmount: newOrder.total_amount,
+    });
+
     return NextResponse.json({ order: newOrder }, { status: 201 });
   }
 
   const supabase = createClient<Database>(supabaseUrl!, serviceRoleKey!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // Verify item prices and availability from menu_items
+  const itemIds = items.map((i) => i.menuItemId).filter((id) => uuidPattern.test(id));
+  const { data: menuItemsData } = await supabase
+    .from("menu_items")
+    .select("id, name, price, is_available")
+    .in("id", itemIds)
+    .eq("restaurant_id", restaurantId);
+
+  const menuItemMap = new Map((menuItemsData ?? []).map((m) => [m.id, m]));
+  for (const it of items) {
+    const m = menuItemMap.get(it.menuItemId);
+    if (!m || m.is_available === false) {
+      return NextResponse.json(
+        { error: "One of the selected dishes is no longer available. Please update your cart." },
+        { status: 409 },
+      );
+    }
+  }
+
   const { data, error } = await supabase.rpc("place_guest_order", {
     p_restaurant_id: restaurantId,
     p_table_id: tableId,
@@ -191,6 +219,22 @@ export async function POST(request: Request) {
     // Direct table insert fallback if RPC is not installed in database
     if (error.code === "42883" || error.message.includes("does not exist") || error.message.includes("rpc")) {
       try {
+        let calculatedTotal = 0;
+        const enrichedItems = items.map((it) => {
+          const m = menuItemMap.get(it.menuItemId);
+          const price = m?.price ?? 0;
+          const itemTotal = price * it.quantity;
+          calculatedTotal += itemTotal;
+          return {
+            menu_item_id: it.menuItemId && uuidPattern.test(it.menuItemId) ? it.menuItemId : null,
+            item_name: m?.name ?? "Menu Item",
+            quantity: it.quantity,
+            unit_price: price,
+            total_price: itemTotal,
+            special_instructions: it.specialInstructions,
+          };
+        });
+
         const { data: directOrder, error: directOrderError } = await supabase
           .from("orders")
           .insert({
@@ -199,26 +243,29 @@ export async function POST(request: Request) {
             table_number: tableLabel,
             customer_phone: phone,
             status: "pending",
-            total_amount: 0,
+            total_amount: calculatedTotal,
             notes,
           })
           .select("id, restaurant_id, table_id, table_number, customer_phone, status, total_amount, notes, created_at, updated_at")
           .single();
 
         if (!directOrderError && directOrder) {
-          if (items.length > 0) {
+          if (enrichedItems.length > 0) {
             await supabase.from("order_items").insert(
-              items.map((it) => ({
+              enrichedItems.map((it) => ({
                 order_id: directOrder.id,
-                menu_item_id: it.menuItemId && uuidPattern.test(it.menuItemId) ? it.menuItemId : null,
-                item_name: "Item",
-                quantity: it.quantity,
-                unit_price: 0,
-                total_price: 0,
-                special_instructions: it.specialInstructions,
+                ...it,
               })),
             );
           }
+
+          void broadcastToKitchen(restaurantId, "new_order", {
+            orderId: directOrder.id,
+            tableNumber: directOrder.table_number,
+            status: directOrder.status,
+            totalAmount: directOrder.total_amount,
+          });
+
           return NextResponse.json({ order: directOrder }, { status: 201 });
         }
       } catch (fallbackErr) {
@@ -241,5 +288,73 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  void broadcastToKitchen(restaurantId, "new_order", {
+    orderId: order.id,
+    tableNumber: order.table_number,
+    status: "pending",
+    totalAmount: order.total_amount,
+  });
+
   return NextResponse.json({ order }, { status: 201 });
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const orderId = url.searchParams.get("orderId");
+  if (!orderId) {
+    return NextResponse.json({ error: "Order ID is required." }, { status: 400 });
+  }
+
+  if (orderId.startsWith("demo-")) {
+    const demoOrder = demoOrdersStore.find((o) => o.id === orderId);
+    if (!demoOrder) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    const safeDemoOrder = { ...demoOrder, customer_phone: null };
+    return NextResponse.json({ order: safeDemoOrder });
+  }
+
+  if (!uuidPattern.test(orderId)) {
+    return NextResponse.json({ error: "Invalid order ID format." }, { status: 400 });
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
+  }
+
+  const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: order, error: orderErr } = await supabase
+    .from("orders")
+    .select("id, restaurant_id, table_id, table_number, status, total_amount, notes, created_at, updated_at, status_updated_at")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (orderErr) {
+    console.error("Could not fetch tracked order:", orderErr.message);
+    return NextResponse.json({ error: "Could not fetch order." }, { status: 500 });
+  }
+
+  if (!order) {
+    return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  }
+
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("id, order_id, menu_item_id, item_name, quantity, unit_price, total_price, special_instructions, created_at")
+    .eq("order_id", order.id)
+    .order("created_at", { ascending: true });
+
+  return NextResponse.json({
+    order: {
+      ...order,
+      status_updated_at: order.status_updated_at || order.updated_at || order.created_at,
+      items: items ?? [],
+    },
+  });
 }

@@ -8,6 +8,7 @@ import {
 import type { Database } from "@/lib/database.types";
 import { demoOrdersStore, updateDemoOrderStatus } from "@/lib/orders-store";
 import { createClient } from "@supabase/supabase-js";
+import { broadcastToKitchen, broadcastToOrder } from "@/lib/realtime-broadcast";
 
 type RouteContext = {
   params: Promise<{ restaurantId: string }>;
@@ -385,10 +386,21 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (nextStatus) {
       updateDemoOrderStatus(orderId, nextStatus);
     }
+    const finalStatus = nextStatus || "preparing";
+    void broadcastToKitchen(restaurantId, "order_status_change", {
+      orderId,
+      status: finalStatus,
+      status_updated_at: now,
+    });
+    void broadcastToOrder(orderId, "order_status_change", {
+      orderId,
+      status: finalStatus,
+      status_updated_at: now,
+    });
     return NextResponse.json({
       order: {
         id: orderId,
-        status: nextStatus || "preparing",
+        status: finalStatus,
         updated_at: now,
         status_updated_at: now,
       },
@@ -467,5 +479,17 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       { status: 409 },
     );
   }
+
+  void broadcastToKitchen(restaurantId, "order_status_change", {
+    orderId: data.id,
+    status: data.status,
+    status_updated_at: data.status_updated_at || data.updated_at,
+  });
+  void broadcastToOrder(orderId, "order_status_change", {
+    orderId: data.id,
+    status: data.status,
+    status_updated_at: data.status_updated_at || data.updated_at,
+  });
+
   return NextResponse.json({ order: data });
 }

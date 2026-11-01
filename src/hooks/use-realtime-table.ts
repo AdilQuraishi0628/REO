@@ -296,10 +296,16 @@ export type ChannelTableConfig = {
 
 export type TableSubscriptionConfig = ChannelTableConfig;
 
+export interface BroadcastSubscriptionConfig {
+  event: string;
+  onReceive: (payload: Record<string, unknown>) => void;
+}
+
 export interface UseRealtimeChannelOptions {
   channelName: string;
   subscriptions?: ChannelTableConfig[];
   configs?: ChannelTableConfig[];
+  broadcasts?: BroadcastSubscriptionConfig[];
   onReconnect?: () => void | Promise<void>;
   onRefetchNeeded?: () => void | Promise<void>;
   enabled?: boolean;
@@ -307,7 +313,8 @@ export interface UseRealtimeChannelOptions {
 
 /**
  * Multi-table Supabase Realtime channel hook that:
- * - Groups multiple table listeners onto ONE single WebSocket channel per page/purpose
+ * - Groups multiple table listeners and broadcast listeners onto ONE single WebSocket channel per page/purpose
+ * - Supports Realtime Broadcast events from backend API routes
  * - Prevents connection over-subscription
  * - Tracks connection status: `connecting` | `live` | `reconnecting` | `offline`
  * - Automatically invokes onReconnect/onRefetchNeeded callback once when coming back online or refocusing tab
@@ -317,13 +324,18 @@ export function useRealtimeChannel({
   channelName,
   subscriptions,
   configs,
+  broadcasts,
   onReconnect,
   onRefetchNeeded,
   enabled = true,
 }: UseRealtimeChannelOptions): { status: RealtimeConnectionStatus } {
   const activeSubs = configs || subscriptions || [];
+  const activeBroads = broadcasts || [];
   const activeRefetch = onRefetchNeeded || onReconnect;
-  const subsKey = JSON.stringify(activeSubs.map((s) => ({ t: s.table, f: s.filter })));
+  const subsKey = JSON.stringify({
+    tables: activeSubs.map((s) => ({ t: s.table, f: s.filter })),
+    broadcasts: activeBroads.map((b) => b.event),
+  });
 
   const [status, setStatus] = useState<RealtimeConnectionStatus>(() => {
     if (typeof navigator !== "undefined" && !navigator.onLine) return "offline";
@@ -335,6 +347,9 @@ export function useRealtimeChannel({
 
   const subscriptionsRef = useRef(activeSubs);
   subscriptionsRef.current = activeSubs;
+
+  const broadcastsRef = useRef(activeBroads);
+  broadcastsRef.current = activeBroads;
 
   const prevStatusRef = useRef<RealtimeConnectionStatus>(status);
   const isMountedRef = useRef(true);
@@ -371,7 +386,7 @@ export function useRealtimeChannel({
   }, []);
 
   useEffect(() => {
-    if (!enabled || activeSubs.length === 0) return;
+    if (!enabled || (activeSubs.length === 0 && activeBroads.length === 0)) return;
 
     const supabase = createSupabaseBrowserClient();
     if (!supabase) {
@@ -381,8 +396,20 @@ export function useRealtimeChannel({
 
     setStatus("connecting");
 
-    const uniqueChannelName = `${channelName}_${Math.random().toString(36).slice(2, 7)}`;
-    let channel = supabase.channel(uniqueChannelName);
+    // Use stable channelName so Realtime Broadcast routes correctly across server and clients
+    let channel = supabase.channel(channelName);
+
+    // Register broadcast listeners
+    for (const b of broadcastsRef.current) {
+      channel = channel.on(
+        "broadcast",
+        { event: b.event },
+        (msg: { payload?: Record<string, unknown> }) => {
+          if (!isMountedRef.current) return;
+          b.onReceive(msg?.payload ?? {});
+        },
+      );
+    }
 
     // Register all table subscriptions on this SINGLE channel
     for (const sub of subscriptionsRef.current) {
@@ -439,7 +466,7 @@ export function useRealtimeChannel({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [channelName, enabled, subsKey, activeSubs.length]);
+  }, [channelName, enabled, subsKey, activeSubs.length, activeBroads.length]);
 
   return { status };
 }

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Database } from "@/lib/database.types";
 import {
   useRealtimeTable,
+  useRealtimeChannel,
   type RealtimeConnectionStatus,
 } from "@/hooks/use-realtime-table";
 import {
@@ -259,14 +260,131 @@ export default function KitchenDisplay({
     },
   });
 
+  // 4-second polling fallback for kitchen when broadcast drops
+  useEffect(() => {
+    const pollInterval = window.setInterval(() => {
+      void refetchOrders();
+      void refetchServiceRequests();
+    }, 4_000);
+    return () => window.clearInterval(pollInterval);
+  }, [refetchOrders, refetchServiceRequests]);
+
+  // Realtime Broadcast subscription on kitchen-${restaurantId}
+  const { status: broadcastStatus } = useRealtimeChannel({
+    channelName: `kitchen-${restaurantId}`,
+    broadcasts: [
+      {
+        event: "new_order",
+        onReceive: async (payload) => {
+          const rawOrder = (payload.order || payload) as KitchenOrder;
+          if (!rawOrder?.id) {
+            void refetchOrders();
+            return;
+          }
+          let fullOrder = rawOrder;
+          if (!fullOrder.items || fullOrder.items.length === 0) {
+            try {
+              const res = await fetch(`/api/kitchen/${restaurantId}/orders?orderId=${rawOrder.id}`, {
+                cache: "no-store",
+              });
+              if (res.ok) {
+                const json = await res.json().catch(() => null);
+                if (json?.order) fullOrder = json.order as KitchenOrder;
+              }
+            } catch {
+              // fallback to rawOrder
+            }
+          }
+          setOrders((prev) => {
+            const idx = prev.findIndex((o) => o.id === fullOrder.id);
+            if (idx !== -1) {
+              const next = [...prev];
+              next[idx] = { ...next[idx], ...fullOrder };
+              return next;
+            }
+            return [fullOrder, ...prev];
+          });
+          setNewOrderIds((prev) => new Set([...prev, fullOrder.id]));
+          setTimeout(() => {
+            setNewOrderIds((prev) => {
+              const next = new Set(prev);
+              next.delete(fullOrder.id);
+              return next;
+            });
+          }, 5_000);
+          if (getSoundPreference()) {
+            void playOrderAlertChime();
+          }
+        },
+      },
+      {
+        event: "order_status_change",
+        onReceive: (payload) => {
+          const order = payload.order as KitchenOrder;
+          const orderId = (payload.orderId || order?.id) as string;
+          const newStatus = (payload.status || order?.status) as KitchenOrder["status"];
+          if (!orderId) {
+            void refetchOrders();
+            return;
+          }
+          setOrders((prev) =>
+            prev.map((o) => (o.id === orderId ? { ...o, ...(order || {}), status: newStatus } : o))
+          );
+        },
+      },
+      {
+        event: "service_request",
+        onReceive: (payload) => {
+          const req = (payload.serviceRequest || payload) as ServiceRequest;
+          if (!req?.id) {
+            void refetchServiceRequests();
+            return;
+          }
+          setServiceRequests((prev) => {
+            const idx = prev.findIndex((r) => r.id === req.id);
+            if (idx !== -1) {
+              const next = [...prev];
+              next[idx] = { ...next[idx], ...req };
+              return next;
+            }
+            return [req, ...prev];
+          });
+          if (getSoundPreference()) {
+            void playOrderAlertChime();
+          }
+        },
+      },
+      {
+        event: "service_request_resolved",
+        onReceive: (payload) => {
+          const req = (payload.serviceRequest || payload) as ServiceRequest;
+          if (!req?.id) {
+            void refetchServiceRequests();
+            return;
+          }
+          setServiceRequests((prev) => prev.filter((r) => r.id !== req.id));
+        },
+      },
+    ],
+    onRefetchNeeded: () => {
+      void refetchOrders();
+      void refetchServiceRequests();
+    },
+  });
+
   // Derive unified connection status
   const connectionStatus: RealtimeConnectionStatus = useMemo(() => {
-    if (ordersStatus === "offline" || serviceRequestsStatus === "offline") return "offline";
-    if (ordersStatus === "reconnecting" || serviceRequestsStatus === "reconnecting")
+    if (ordersStatus === "offline" || serviceRequestsStatus === "offline" || broadcastStatus === "offline") {
+      return "offline";
+    }
+    if (ordersStatus === "live" || serviceRequestsStatus === "live" || broadcastStatus === "live") {
+      return "live";
+    }
+    if (ordersStatus === "reconnecting" || serviceRequestsStatus === "reconnecting" || broadcastStatus === "reconnecting") {
       return "reconnecting";
-    if (ordersStatus === "live" || serviceRequestsStatus === "live") return "live";
+    }
     return "connecting";
-  }, [ordersStatus, serviceRequestsStatus]);
+  }, [ordersStatus, serviceRequestsStatus, broadcastStatus]);
 
   // Toggle sound alert
   const toggleSound = () => {

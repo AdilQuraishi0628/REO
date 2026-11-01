@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Icon, IconClose, IconClock, IconTable } from "@/components/icons";
-import { useRealtimeTable } from "@/hooks/use-realtime-table";
+import { useRealtimeChannel } from "@/hooks/use-realtime-table";
 
 export type ReservationSlot = {
   time: string;
@@ -88,31 +88,62 @@ export default function GuestReservationModal({
     }
   }, [isOpen, date, loadSlots, confirmedReservation]);
 
-  // Real-time listener for the guest's confirmed reservation
-  const fetchSingleReservation = async (): Promise<ReservationRecord[]> => {
-    if (!confirmedReservation?.id) return [];
+  // Real-time broadcast listener and gentle poll for guest's confirmed reservation
+  const [activeRecord, setActiveRecord] = useState<ReservationRecord | null>(confirmedReservation);
+
+  useEffect(() => {
+    if (confirmedReservation) {
+      setActiveRecord(confirmedReservation);
+    }
+  }, [confirmedReservation]);
+
+  const fetchSingleReservation = useCallback(async (): Promise<ReservationRecord | null> => {
+    if (!confirmedReservation?.id) return null;
     try {
       const res = await fetch(`/api/reservations/${confirmedReservation.id}`);
       if (res.ok) {
         const json = await res.json();
-        if (json?.reservation) return [json.reservation];
+        if (json?.reservation) return json.reservation as ReservationRecord;
       }
     } catch {
       // Ignore
     }
-    return confirmedReservation ? [confirmedReservation] : [];
-  };
+    return null;
+  }, [confirmedReservation?.id]);
 
-  const { data: realtimeList } = useRealtimeTable<ReservationRecord>({
-    table: "reservations",
-    restaurantId,
-    filter: confirmedReservation?.id ? `id=eq.${confirmedReservation.id}` : undefined,
-    initialData: confirmedReservation ? [confirmedReservation] : [],
-    fetchData: fetchSingleReservation,
+  // Gentle 15s poll fallback when reservation is active
+  useEffect(() => {
+    if (!confirmedReservation?.id) return;
+    const timer = window.setInterval(async () => {
+      const fresh = await fetchSingleReservation();
+      if (fresh) setActiveRecord(fresh);
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [confirmedReservation?.id, fetchSingleReservation]);
+
+  useRealtimeChannel({
+    channelName: confirmedReservation?.id
+      ? `reservation:${confirmedReservation.id}`
+      : "guest-reservation-idle",
     enabled: Boolean(confirmedReservation?.id),
+    broadcasts: [
+      {
+        event: "reservation_status_change",
+        onReceive: (payload) => {
+          if (payload.status) {
+            setActiveRecord((prev) =>
+              prev ? { ...prev, status: payload.status as ReservationRecord["status"] } : null
+            );
+          }
+        },
+      },
+    ],
+    onRefetchNeeded: () => {
+      void fetchSingleReservation().then((fresh) => {
+        if (fresh) setActiveRecord(fresh);
+      });
+    },
   });
-
-  const activeRecord = realtimeList[0] || confirmedReservation;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRealtimeTable } from "@/hooks/use-realtime-table";
+import { useEffect, useState, useCallback } from "react";
+import { useRealtimeChannel } from "@/hooks/use-realtime-table";
 import { Icon, IconClock, IconServed } from "@/components/icons";
 
 export type TrackedOrder = {
@@ -99,31 +99,74 @@ export default function LiveOrderTracker({
     return () => clearInterval(timer);
   }, []);
 
-  const fetchOrder = async (): Promise<TrackedOrder[]> => {
+  const [order, setOrder] = useState<TrackedOrder | null>(initialOrder ?? null);
+
+  const fetchOrder = useCallback(async (): Promise<TrackedOrder | null> => {
     try {
-      const res = await fetch(`/api/kitchen/${restaurantId}/orders?orderId=${orderId}`, {
+      const res = await fetch(`/api/orders?orderId=${orderId}`, {
         cache: "no-store",
       });
       if (res.ok) {
         const json = await res.json();
-        if (json && json.order) return [json.order];
+        if (json && json.order) return json.order as TrackedOrder;
       }
     } catch (err) {
       console.warn("Could not fetch tracked order:", err);
     }
-    return initialOrder ? [initialOrder] : [];
-  };
+    return null;
+  }, [orderId]);
 
-  // Subscribe strictly to this guest's own order: filter: id=eq.${orderId}
-  const { data: orderList, status: connectionStatus } = useRealtimeTable<TrackedOrder>({
-    table: "orders",
-    restaurantId,
-    filter: `id=eq.${orderId}`,
-    initialData: initialOrder ? [initialOrder] : [],
-    fetchData: fetchOrder,
+  // Gentle polling fallback (12s) when broadcast drops
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const fresh = await fetchOrder();
+      if (mounted && fresh) {
+        setOrder(fresh);
+      }
+    };
+    if (!order) {
+      void load();
+    }
+    const timer = window.setInterval(load, 12_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, [fetchOrder, order]);
+
+  // Subscribe strictly to guest's own broadcast channel: order:${orderId}
+  const { status: connectionStatus } = useRealtimeChannel({
+    channelName: `order:${orderId}`,
+    broadcasts: [
+      {
+        event: "order_status_change",
+        onReceive: (payload) => {
+          if (payload.order) {
+            setOrder(payload.order as TrackedOrder);
+          } else if (payload.status) {
+            setOrder((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: payload.status as TrackedOrder["status"],
+                    status_updated_at:
+                      (payload.statusUpdatedAt as string) || new Date().toISOString(),
+                    updated_at:
+                      (payload.updatedAt as string) || new Date().toISOString(),
+                  }
+                : null
+            );
+          }
+        },
+      },
+    ],
+    onRefetchNeeded: () => {
+      void fetchOrder().then((fresh) => {
+        if (fresh) setOrder(fresh);
+      });
+    },
   });
-
-  const order = orderList[0] || initialOrder;
 
   // Persist order in localStorage
   useEffect(() => {

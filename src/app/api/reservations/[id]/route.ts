@@ -7,6 +7,7 @@ import {
   updateDemoReservationStatus,
   type ReservationStatus,
 } from "@/lib/reservations-store";
+import { broadcastToKitchen, broadcastToReservation } from "@/lib/realtime-broadcast";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -53,7 +54,31 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
   }
 
-  return NextResponse.json({ reservation: data });
+  // Guests must read their own reservation through an API route that takes the id and returns only non-sensitive fields (no phone)
+  const staffSession = await getStaffSession();
+  const adminContext = await getAdminContext();
+  const isStaffOrAdmin = Boolean(
+    (staffSession && staffSession.restaurantId === data.restaurant_id) ||
+    (adminContext && adminContext.restaurantIds.includes(data.restaurant_id))
+  );
+
+  const safeReservation = isStaffOrAdmin
+    ? data
+    : {
+        id: data.id,
+        restaurant_id: data.restaurant_id,
+        guest_name: data.guest_name,
+        party_size: data.party_size,
+        reservation_date: data.reservation_date,
+        reservation_time: data.reservation_time,
+        table_id: data.table_id,
+        notes: data.notes,
+        status: data.status,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+  return NextResponse.json({ reservation: safeReservation });
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
@@ -93,6 +118,18 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       if (!updated) {
         return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
       }
+      void broadcastToKitchen(updated.restaurant_id, "reservation_status_change", {
+        reservation: updated,
+      });
+      void broadcastToReservation(updated.id, "reservation_status_change", {
+        id: updated.id,
+        status: updated.status,
+        guestName: updated.guest_name,
+        reservationDate: updated.reservation_date,
+        reservationTime: updated.reservation_time,
+        partySize: updated.party_size,
+        tableId: updated.table_id,
+      });
       return NextResponse.json({ reservation: updated });
     }
     return NextResponse.json({ error: "Provide a valid status." }, { status: 400 });
@@ -144,6 +181,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   if (!data) {
     return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
   }
+
+  void broadcastToKitchen(data.restaurant_id, "reservation_status_change", {
+    reservation: data,
+  });
+  void broadcastToReservation(data.id, "reservation_status_change", {
+    id: data.id,
+    status: data.status,
+    guestName: data.guest_name,
+    reservationDate: data.reservation_date,
+    reservationTime: data.reservation_time,
+    partySize: data.party_size,
+    tableId: data.table_id,
+  });
 
   return NextResponse.json({ reservation: data });
 }

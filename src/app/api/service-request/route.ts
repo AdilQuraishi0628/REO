@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { addDemoServiceRequest } from "@/lib/service-requests-store";
 import { uuidPattern } from "@/lib/admin-auth";
+import { broadcastToKitchen } from "@/lib/realtime-broadcast";
 
 type ServiceRequestBody = {
   restaurantId: string;
@@ -115,12 +116,27 @@ export async function POST(request: Request) {
       type,
       status: "pending",
     });
+    void broadcastToKitchen(restaurantId, "service_request", {
+      id: demoReq.id,
+      tableNumber: demoReq.table_number,
+      type: demoReq.type,
+      status: "pending",
+      createdAt: demoReq.created_at,
+    });
     return NextResponse.json({
       success: true,
       request: demoReq,
       message: confirmationMessage,
     });
   }
+
+  void broadcastToKitchen(restaurantId, "service_request", {
+    id: requestRecord.id,
+    tableNumber: requestRecord.table_number,
+    type: requestRecord.type,
+    status: "pending",
+    createdAt: requestRecord.created_at,
+  });
 
   return NextResponse.json({
     success: true,

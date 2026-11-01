@@ -48,8 +48,9 @@ export async function GET(request: Request, { params }: RouteContext) {
   try {
     const { data: restaurantRow, error: restError } = await supabase
       .from("restaurants")
-      .select("*")
+      .select("id, slug, name, tagline, description, address, city, phone, hours, hero_image, initials, wifi_name, wifi_ssid, wifi_password, enable_call_waiter, enable_request_bill, enable_wifi, enable_menu, enable_ordering, enable_feedback, enable_google_reviews, secondary_color, instagram_url, google_review_url, logo_url, primary_color, loyalty_enabled, loyalty_type, loyalty_reward_goal, loyalty_reward_description, loyalty_points_per_amount, loyalty_points_goal, enable_reservations, is_published")
       .eq("id", restaurantId)
+      .eq("is_published", true)
       .single();
 
     if (restError || !restaurantRow) {
@@ -138,7 +139,6 @@ export async function GET(request: Request, { params }: RouteContext) {
         loyaltyEnabled: restaurantRow.loyalty_enabled ?? true,
         loyaltyType: (restaurantRow.loyalty_type as "stamps" | "points") || "stamps",
         loyaltyRewardGoal: restaurantRow.loyalty_reward_goal ?? 5,
-        kitchenPin: ((restaurantRow as Record<string, unknown>).kitchen_pin as string) ?? "1234",
         enableReservations: (restaurantRow as Record<string, unknown>).enable_reservations !== false,
       },
       categories,

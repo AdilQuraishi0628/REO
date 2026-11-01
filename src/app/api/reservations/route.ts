@@ -7,6 +7,7 @@ import {
   demoReservationsStore,
   addDemoReservation,
 } from "@/lib/reservations-store";
+import { broadcastToKitchen, broadcastToReservation } from "@/lib/realtime-broadcast";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -260,6 +261,18 @@ export async function POST(request: Request) {
       status: "confirmed", // auto-confirm in demo mode
     });
 
+    void broadcastToKitchen(restaurantId, "new_reservation", {
+      reservation: created,
+    });
+    void broadcastToReservation(created.id, "reservation_status_change", {
+      id: created.id,
+      status: created.status,
+      guestName: created.guest_name,
+      reservationDate: created.reservation_date,
+      reservationTime: created.reservation_time,
+      partySize: created.party_size,
+    });
+
     return NextResponse.json({ reservation: created }, { status: 201 });
   }
 
@@ -356,6 +369,18 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  void broadcastToKitchen(restaurantId, "new_reservation", {
+    reservation,
+  });
+  void broadcastToReservation(reservation.id, "reservation_status_change", {
+    id: reservation.id,
+    status: reservation.status,
+    guestName: reservation.guest_name,
+    reservationDate: reservation.reservation_date,
+    reservationTime: reservation.reservation_time,
+    partySize: reservation.party_size,
+  });
 
   return NextResponse.json({ reservation }, { status: 201 });
 }

@@ -12,6 +12,7 @@ import {
 } from "@/lib/service-requests-store";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { broadcastToKitchen } from "@/lib/realtime-broadcast";
 
 type RouteContext = {
   params: Promise<{ restaurantId: string }>;
@@ -147,6 +148,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   if (!data) {
     return NextResponse.json({ error: "Service request not found." }, { status: 404 });
   }
+
+  void broadcastToKitchen(restaurantId, "service_request_resolved", {
+    serviceRequest: data,
+  });
 
   return NextResponse.json({ request: data });
 }
