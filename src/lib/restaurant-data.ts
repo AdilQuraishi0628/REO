@@ -105,7 +105,6 @@ export const demoRestaurants: Record<string, { restaurant: Restaurant; categorie
       loyaltyRewardDescription: "Complimentary Cold Brew or Basque Cheesecake",
       loyaltyPointsPerAmount: 10,
       loyaltyPointsGoal: 100,
-      kitchenPin: "1234",
     },
     categories: [
       {
@@ -258,7 +257,6 @@ export const demoRestaurants: Record<string, { restaurant: Restaurant; categorie
       primaryColor: "#C84B16",
       loyaltyEnabled: true,
       loyaltyRewardGoal: 5,
-      kitchenPin: "1234",
     },
     categories: [
       {
@@ -392,7 +390,6 @@ export const demoRestaurants: Record<string, { restaurant: Restaurant; categorie
       primaryColor: "#7B113A",
       loyaltyEnabled: true,
       loyaltyRewardGoal: 5,
-      kitchenPin: "1234",
     },
     categories: [
       {
@@ -636,7 +633,6 @@ export async function getGuestPageData(
       loyaltyRewardDescription: restaurantRow.loyalty_reward_description ?? "Complimentary treat",
       loyaltyPointsPerAmount: restaurantRow.loyalty_points_per_amount ?? 10,
       loyaltyPointsGoal: restaurantRow.loyalty_points_goal ?? 100,
-      kitchenPin: ((restaurantRow as Record<string, unknown>).kitchen_pin as string) ?? "1234",
       enableReservations: (restaurantRow as Record<string, unknown>).enable_reservations !== false,
     },
     categories,

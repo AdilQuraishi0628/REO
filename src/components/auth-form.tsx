@@ -295,14 +295,14 @@ export default function AuthForm({
             </label>
 
             <label className="loyalty-label" htmlFor="staff-pin">
-              Staff 4-Digit PIN
+              Staff Security PIN
               <input
                 id="staff-pin"
                 type="password"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={6}
-                placeholder="e.g. 1234"
+                maxLength={8}
+                placeholder="Enter PIN"
                 value={staffPin}
                 onChange={(e) => setStaffPin(e.target.value)}
                 required
@@ -313,7 +313,7 @@ export default function AuthForm({
 
             <div className="staff-pin-hint">
               <Icon name="info" size={14} />
-              <span>PIN is set by the restaurant manager in Admin Settings. Default is 1234.</span>
+              <span>PIN is configured by the restaurant owner in Admin Settings.</span>
             </div>
 
             {error && (

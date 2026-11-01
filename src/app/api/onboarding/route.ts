@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getAdminContext, uuidPattern } from "@/lib/admin-auth";
+import { generateRandomStaffPin, hashStaffPin } from "@/lib/staff-pin";
 
 function text(value: unknown, maxLength: number) {
   return typeof value === "string" && value.trim().length <= maxLength
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
       if (input.action === "create-restaurant") {
         const name = text(input.name, 120) || "My Raipur Cafe";
         const slug = slugify(name) || "my-raipur-cafe";
+        const initialStaffPin = generateRandomStaffPin();
         return NextResponse.json({
           restaurant: {
             id: "demo-new-rest-" + Date.now(),
@@ -106,6 +108,7 @@ export async function POST(request: Request) {
             is_published: false,
             onboarding_step: 1,
           },
+          staffPin: initialStaffPin,
           step: 1,
         }, { status: 201 });
       }
@@ -146,22 +149,41 @@ export async function POST(request: Request) {
       .slice(0, 2)
       .map((word) => word[0]?.toUpperCase() ?? "")
       .join("");
-    const { data: restaurant, error } = await service
+    const initialStaffPin = generateRandomStaffPin();
+    const initialStaffPinHash = await hashStaffPin(initialStaffPin);
+
+    const insertPayload: Record<string, unknown> = {
+      slug,
+      name,
+      address,
+      city,
+      phone,
+      initials,
+      is_published: false,
+      onboarding_step: 1,
+      staff_pin_hash: initialStaffPinHash,
+    };
+
+    let { data: restaurant, error } = await service
       .from("restaurants")
-      .insert({
-        slug,
-        name,
-        address,
-        city,
-        phone,
-        initials,
-        is_published: false,
-        onboarding_step: 1,
-      })
+      .insert(insertPayload as never)
       .select("id, slug, name, is_published, onboarding_step")
       .single();
-    if (error) {
-      console.error("Could not create onboarding restaurant:", error.message);
+
+    if (error && /staff_pin_hash/i.test(error.message)) {
+      delete insertPayload.staff_pin_hash;
+      insertPayload.kitchen_pin = initialStaffPin;
+      const retry = await service
+        .from("restaurants")
+        .insert(insertPayload as never)
+        .select("id, slug, name, is_published, onboarding_step")
+        .single();
+      restaurant = retry.data;
+      error = retry.error;
+    }
+
+    if (error || !restaurant) {
+      console.error("Could not create onboarding restaurant:", error?.message);
       return NextResponse.json({ error: "We couldn't create the restaurant. Please try again." }, { status: 500 });
     }
 
@@ -174,7 +196,7 @@ export async function POST(request: Request) {
       await service.from("restaurants").delete().eq("id", restaurant.id);
       return NextResponse.json({ error: "We couldn't finish creating your workspace. Please try again." }, { status: 500 });
     }
-    return NextResponse.json({ restaurant, step: 1 }, { status: 201 });
+    return NextResponse.json({ restaurant, staffPin: initialStaffPin, step: 1 }, { status: 201 });
   }
 
   const restaurantId = typeof input.restaurantId === "string" ? input.restaurantId : "";

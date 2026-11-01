@@ -6,6 +6,7 @@ import {
 } from "@/lib/admin-auth";
 import { demoRestaurants } from "@/lib/restaurant-data";
 import type { Database } from "@/lib/database.types";
+import { hashStaffPin } from "@/lib/staff-pin";
 
 type RouteContext = {
   params: Promise<{ restaurantId: string }>;
@@ -39,7 +40,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
           enable_wifi: demo.restaurant.enableWifi ?? true,
           enable_call_waiter: demo.restaurant.enableCallWaiter ?? true,
           enable_request_bill: demo.restaurant.enableRequestBill ?? true,
-          kitchen_pin: demo.restaurant.kitchenPin ?? "1234",
+          has_staff_pin: true,
         },
         categories: demo.categories.map((c, i) => ({ id: c.id, name: c.name, icon: c.icon ?? null, image_url: c.imageUrl ?? null, sort_order: i })),
         items: demo.categories.flatMap((c) =>
@@ -171,10 +172,14 @@ export async function GET(_request: Request, { params }: RouteContext) {
     }
 
     const restData = (restaurantResult.data ?? {}) as Record<string, unknown>;
+    const safeRestData = { ...restData };
+    delete safeRestData.kitchen_pin;
+    delete safeRestData.staff_pin_hash;
+
     return NextResponse.json({
       restaurant: {
-        ...restData,
-        kitchen_pin: (restData.kitchen_pin as string) || "1234",
+        ...safeRestData,
+        has_staff_pin: Boolean(restData.staff_pin_hash || restData.kitchen_pin),
       },
       categories,
       items,
@@ -333,15 +338,25 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   if (loyaltyRewardDescription !== undefined) updatePayload.loyalty_reward_description = loyaltyRewardDescription;
   if (loyaltyPointsPerAmount !== undefined) updatePayload.loyalty_points_per_amount = loyaltyPointsPerAmount;
   if (loyaltyPointsGoal !== undefined) updatePayload.loyalty_points_goal = loyaltyPointsGoal;
-  if (kitchenPin !== undefined) (updatePayload as Record<string, unknown>).kitchen_pin = kitchenPin;
+  if (kitchenPin !== undefined) {
+    try {
+      const hashed = await hashStaffPin(kitchenPin);
+      (updatePayload as Record<string, unknown>).staff_pin_hash = hashed;
+    } catch {
+      // ignore invalid PIN length
+    }
+  }
 
   let { error } = await context.serviceClient
     .from("restaurants")
     .update(updatePayload)
     .eq("id", restaurantId);
 
-  if (error && /kitchen_pin/i.test(error.message)) {
-    delete (updatePayload as Record<string, unknown>).kitchen_pin;
+  if (error && /staff_pin_hash/i.test(error.message)) {
+    delete (updatePayload as Record<string, unknown>).staff_pin_hash;
+    if (kitchenPin !== undefined) {
+      (updatePayload as Record<string, unknown>).kitchen_pin = kitchenPin;
+    }
     const retry = await context.serviceClient
       .from("restaurants")
       .update(updatePayload)

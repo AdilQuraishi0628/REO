@@ -1095,9 +1095,38 @@ function ProfileSection({
   const [instagramUrl, setInstagramUrl] = useState(restaurant.instagram_url ?? "");
   const [wifiName, setWifiName] = useState(restaurant.wifi_name || restaurant.wifi_ssid || "");
   const [wifiPassword, setWifiPassword] = useState(restaurant.wifi_password ?? "");
-  const [kitchenPin, setKitchenPin] = useState(restaurant.kitchen_pin || "1234");
+  const [hasStaffPin, setHasStaffPin] = useState(Boolean((restaurant as Record<string, unknown>).has_staff_pin || restaurant.kitchen_pin));
+  const [customPinInput, setCustomPinInput] = useState("");
+  const [newGeneratedPin, setNewGeneratedPin] = useState<string | null>(null);
+  const [pinStatusMsg, setPinStatusMsg] = useState("");
+  const [isPinBusy, setIsPinBusy] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+
+  async function handleUpdateStaffPin(pinToSet?: string) {
+    setIsPinBusy(true);
+    setPinStatusMsg("");
+    setNewGeneratedPin(null);
+    try {
+      const res = await fetch(`/api/admin/${restaurantId}/staff-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pinToSet ? { pin: pinToSet } : {}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Could not set staff PIN");
+      }
+      setHasStaffPin(true);
+      setNewGeneratedPin(data.pin);
+      setCustomPinInput("");
+      setPinStatusMsg("Staff PIN successfully updated! It is shown once below.");
+    } catch (err) {
+      setPinStatusMsg(err instanceof Error ? err.message : "Failed to update staff PIN");
+    } finally {
+      setIsPinBusy(false);
+    }
+  }
 
   async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -1139,7 +1168,6 @@ function ProfileSection({
       wifiName: wifiName.trim() || undefined,
       wifiSsid: wifiName.trim() || undefined,
       wifiPassword: wifiPassword.trim() || undefined,
-      kitchenPin: kitchenPin.trim() || "1234",
     });
   }
 
@@ -1539,23 +1567,126 @@ function ProfileSection({
             <span className="subhead-icon"><Icon name="clock" size={18} /></span>
             <div>
               <h3>Kitchen Display &amp; Staff Access</h3>
-              <p>Set a 4-digit PIN for your kitchen tablets and floor staff to log in without sharing your owner password.</p>
+              <p>Configure a secure staff PIN for your kitchen display tablets and floor staff to log in at <code>/admin/login</code> without sharing your owner password.</p>
             </div>
           </div>
 
-          <div className="form-row-two" style={{ marginTop: 14 }}>
-            <label className="admin-label">
-              4-Digit Staff PIN
-              <input
-                className="admin-input"
-                maxLength={8}
-                pattern="[0-9]*"
-                onChange={(e) => setKitchenPin(e.target.value)}
-                placeholder="1234"
-                value={kitchenPin}
-              />
-              <span className="field-hint">Default is 1234. Staff log in at <code>/admin/login</code> under Kitchen Staff.</span>
-            </label>
+          {newGeneratedPin && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: "16px 20px",
+                background: "#FAF4EC",
+                border: "2px solid #722F37",
+                borderRadius: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <strong style={{ color: "#722F37", fontSize: 15 }}>
+                  New Staff PIN (shown once):
+                </strong>
+                <button
+                  type="button"
+                  className="admin-btn secondary"
+                  style={{ padding: "4px 10px", fontSize: 12 }}
+                  onClick={() => setNewGeneratedPin(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span
+                  style={{
+                    fontFamily: "monospace",
+                    fontSize: 28,
+                    fontWeight: 700,
+                    letterSpacing: 6,
+                    color: "#2A1A1D",
+                    background: "#FFFFFF",
+                    padding: "6px 16px",
+                    borderRadius: 8,
+                    border: "1px solid #D9CBB8",
+                  }}
+                >
+                  {newGeneratedPin}
+                </span>
+                <button
+                  type="button"
+                  className="admin-btn secondary"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(newGeneratedPin);
+                    alert("Staff PIN copied to clipboard!");
+                  }}
+                >
+                  Copy PIN
+                </button>
+              </div>
+              <p style={{ fontSize: 13, color: "#665C54", margin: 0 }}>
+                Make a note of this PIN now. For security, staff PINs are stored as cryptographically salted hashes and will not be displayed again.
+              </p>
+            </div>
+          )}
+
+          {pinStatusMsg && !newGeneratedPin && (
+            <p style={{ marginTop: 12, fontSize: 13, color: "#722F37" }}>{pinStatusMsg}</p>
+          )}
+
+          <div className="form-row-two" style={{ marginTop: 16 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <label className="admin-label" style={{ margin: 0 }}>
+                  Staff Security PIN
+                </label>
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: hasStaffPin ? "#E8F5E9" : "#FFEBEE",
+                    color: hasStaffPin ? "#2E7D32" : "#C62828",
+                    fontWeight: 600,
+                  }}
+                >
+                  {hasStaffPin ? "PIN Active" : "No PIN Set"}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  className="admin-input"
+                  maxLength={8}
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  placeholder="4–8 digit PIN"
+                  value={customPinInput}
+                  onChange={(e) => setCustomPinInput(e.target.value.replace(/\D/g, ""))}
+                  disabled={isPinBusy}
+                />
+                <button
+                  type="button"
+                  className="admin-btn secondary"
+                  style={{ whiteSpace: "nowrap" }}
+                  disabled={isPinBusy || customPinInput.length < 4}
+                  onClick={() => void handleUpdateStaffPin(customPinInput)}
+                >
+                  Set Custom
+                </button>
+                <button
+                  type="button"
+                  className="admin-btn primary"
+                  style={{ whiteSpace: "nowrap" }}
+                  disabled={isPinBusy}
+                  onClick={() => void handleUpdateStaffPin()}
+                >
+                  {hasStaffPin ? "Reset Random PIN" : "Generate PIN"}
+                </button>
+              </div>
+              <span className="field-hint">
+                4 to 8 numeric digits. When reset, the new PIN is shown once to record.
+              </span>
+            </div>
 
             <div className="admin-label">
               <span>Direct Kitchen Tablet URL</span>

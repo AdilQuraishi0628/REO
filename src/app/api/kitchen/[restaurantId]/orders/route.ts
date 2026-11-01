@@ -41,25 +41,34 @@ async function authorize(restaurantId: string) {
     return { serviceClient, isStaff: true };
   }
 
-  // 2. Demo fallback
-  if (!supabaseUrl || !serviceRoleKey) {
-    return { isDemo: true };
+  // 2. Check Owner admin context
+  const context = await getAdminContext();
+  if (context) {
+    if (!uuidPattern.test(restaurantId) || !canManageRestaurant(context, restaurantId)) {
+      return {
+        response: NextResponse.json(
+          { error: "You don't have access to this restaurant." },
+          { status: 403 },
+        ),
+      };
+    }
+    return { serviceClient: context.serviceClient, context };
   }
 
-  // 3. Check Owner admin context
-  const context = await getAdminContext();
-  if (!context) {
-    return { isDemo: true };
+  // 3. Fallback for demo mode only when Supabase is unconfigured or explicit demo ID
+  const isExplicitDemo =
+    restaurantId.startsWith("00000000-0000-4000-8000-") ||
+    restaurantId.startsWith("demo-");
+  if (!supabaseUrl || !serviceRoleKey) {
+    if (isExplicitDemo) return { isDemo: true };
   }
-  if (!uuidPattern.test(restaurantId) || !canManageRestaurant(context, restaurantId)) {
-    return {
-      response: NextResponse.json(
-        { error: "You don't have access to this restaurant." },
-        { status: 403 },
-      ),
-    };
-  }
-  return { serviceClient: context.serviceClient, context };
+
+  return {
+    response: NextResponse.json(
+      { error: "Authentication required to access kitchen orders." },
+      { status: 401 },
+    ),
+  };
 }
 
 export async function GET(request: Request, { params }: RouteContext) {

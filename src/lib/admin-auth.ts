@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Database } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -18,8 +19,9 @@ export type AdminContext = {
 export type StaffSession = {
   restaurantId: string;
   restaurantName: string;
-  role: "kitchen";
+  role: "kitchen" | "staff";
   authenticatedAt: number;
+  expiresAt?: number;
 };
 
 export async function getSignedInUser() {
@@ -70,16 +72,66 @@ export async function getAdminContext(): Promise<AdminContext | null> {
   }
 }
 
+function getStaffSessionSigningSecret(): string {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXTAUTH_SECRET ||
+    process.env.SESSION_SECRET ||
+    "tabletap_secure_session_signing_secret_fallback_key"
+  );
+}
+
+export function signStaffSessionPayload(payload: StaffSession): string {
+  const json = JSON.stringify(payload);
+  const b64 = Buffer.from(json, "utf-8").toString("base64url");
+  const secret = getStaffSessionSigningSecret();
+  const signature = createHmac("sha256", secret).update(b64).digest("hex");
+  return `${b64}.${signature}`;
+}
+
+export function verifySignedStaffSessionToken(token: string): StaffSession | null {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(token));
+      if (parsed && typeof parsed.restaurantId === "string" && (parsed.role === "kitchen" || parsed.role === "staff")) {
+        return parsed as StaffSession;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  const [b64, signature] = parts;
+  const secret = getStaffSessionSigningSecret();
+  const expectedSig = createHmac("sha256", secret).update(b64).digest("hex");
+  const expectedBuf = Buffer.from(expectedSig);
+  const candidateBuf = Buffer.from(signature);
+  if (expectedBuf.length !== candidateBuf.length) return null;
+  if (!timingSafeEqual(candidateBuf, expectedBuf)) return null;
+
+  try {
+    const rawJson = Buffer.from(b64, "base64url").toString("utf-8");
+    const parsed = JSON.parse(rawJson);
+    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+      return null;
+    }
+    if (parsed && typeof parsed.restaurantId === "string" && (parsed.role === "kitchen" || parsed.role === "staff")) {
+      return parsed as StaffSession;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export async function getStaffSession(): Promise<StaffSession | null> {
   try {
     const cookieStore = await cookies();
     const raw = cookieStore.get("tabletap_staff_session")?.value;
     if (!raw) return null;
-    const parsed = JSON.parse(decodeURIComponent(raw));
-    if (parsed && typeof parsed.restaurantId === "string" && parsed.role === "kitchen") {
-      return parsed as StaffSession;
-    }
-    return null;
+    return verifySignedStaffSessionToken(raw);
   } catch {
     return null;
   }
