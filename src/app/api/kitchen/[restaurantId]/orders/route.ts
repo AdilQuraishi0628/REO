@@ -41,7 +41,7 @@ async function authorize(restaurantId: string) {
   }
 
   // 2. Demo fallback
-  if (!supabaseUrl || !serviceRoleKey || restaurantId.startsWith("00000000-0000-4000-8000-")) {
+  if (!supabaseUrl || !serviceRoleKey) {
     return { isDemo: true };
   }
 

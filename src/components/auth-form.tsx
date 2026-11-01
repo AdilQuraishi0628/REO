@@ -32,7 +32,7 @@ const copy: Record<AuthMode, { title: string; description: string; action: strin
   },
   "reset-password": {
     title: "Choose a new password.",
-    description: "Use at least 12 characters to keep your restaurant account secure.",
+    description: "Use at least 8 characters to keep your restaurant account secure.",
     action: "Update Password",
   },
   "resend-verification": {
@@ -109,8 +109,8 @@ export default function AuthForm({
       setError("Those passwords don't match.");
       return;
     }
-    if ((mode === "signup" || mode === "reset-password") && password.length < 12) {
-      setError("Use a password with at least 12 characters.");
+    if ((mode === "signup" || mode === "reset-password") && password.length < 8) {
+      setError("Use a password with at least 8 characters.");
       return;
     }
 
@@ -356,7 +356,7 @@ export default function AuthForm({
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
                   id="auth-password"
                   maxLength={256}
-                  minLength={mode === "login" ? 1 : 12}
+                  minLength={mode === "login" ? 1 : 8}
                   onChange={(event) => setPassword(event.target.value)}
                   required
                   type="password"
@@ -373,7 +373,7 @@ export default function AuthForm({
                   autoComplete="new-password"
                   id="auth-confirm-password"
                   maxLength={256}
-                  minLength={12}
+                  minLength={8}
                   onChange={(event) => setConfirmation(event.target.value)}
                   required
                   type="password"

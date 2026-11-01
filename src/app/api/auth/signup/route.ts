@@ -30,9 +30,9 @@ export async function POST(request: Request) {
   }
   const email = "email" in input && typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
   const password = "password" in input && typeof input.password === "string" ? input.password : "";
-  if (!emailPattern.test(email) || email.length > 254 || password.length < 12 || password.length > 256) {
+  if (!emailPattern.test(email) || email.length > 254 || password.length < 8 || password.length > 256) {
     return NextResponse.json(
-      { error: "Enter a valid email and a password with at least 12 characters." },
+      { error: "Enter a valid email and a password with at least 8 characters." },
       { status: 400 },
     );
   }

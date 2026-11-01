@@ -17,7 +17,7 @@ function createUniqueCode() {
 async function getAuthorizedContext(restaurantId: string) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey || restaurantId.startsWith("00000000-0000-4000-8000-")) {
+  if (!supabaseUrl || !serviceRoleKey) {
     return { isDemo: true };
   }
 

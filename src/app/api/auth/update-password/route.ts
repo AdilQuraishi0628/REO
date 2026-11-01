@@ -39,9 +39,9 @@ export async function POST(request: Request) {
     typeof input.password === "string"
       ? input.password
       : "";
-  if (password.length < 12 || password.length > 256) {
+  if (password.length < 8 || password.length > 256) {
     return NextResponse.json(
-      { error: "Use a password with at least 12 characters." },
+      { error: "Use a password with at least 8 characters." },
       { status: 400 },
     );
   }
