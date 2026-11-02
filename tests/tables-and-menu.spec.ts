@@ -13,6 +13,7 @@ test.describe('1. Tables & QR Management', () => {
     // Select "Brand New Cafe (Zero Tables Demo)"
     const venueSelect = page.locator('#branch-select:visible, .topbar-mobile-switcher select:visible').first();
     await venueSelect.selectOption({ label: 'Brand New Cafe (Zero Tables Demo)' });
+    await expect(page.locator('.topbar-title')).toContainText('Brand New Cafe');
 
     // Navigate to Tables & QR section
     const tablesNavItem = page.locator('button.admin-nav-item:has-text("Tables & QR")').filter({ visible: true }).first();
@@ -119,7 +120,7 @@ test.describe('1. Tables & QR Management', () => {
     expect(pdfRes.headers()['content-type']).toContain('application/pdf');
 
     // Test Copy URL button
-    const copyBtn = rooftopCard.locator('button:has-text("Copy URL")');
+    const copyBtn = rooftopCard.locator('button.nfc-copy, button:has-text("Copy")');
     await copyBtn.click();
     await expect(rooftopCard.locator('button:has-text("Copied!")')).toBeVisible();
   });
@@ -239,6 +240,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
     await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
     const venueSelect = page.locator('#branch-select:visible, .topbar-mobile-switcher select:visible').first();
     await venueSelect.selectOption({ label: 'Brand New Cafe (Zero Tables Demo)' });
+    await expect(page.locator('.topbar-title')).toContainText('Brand New Cafe');
 
     const menuNavItem = page.locator('button.admin-nav-item:has-text("Menu Management")').filter({ visible: true }).first();
     await menuNavItem.click();
