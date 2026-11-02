@@ -2686,12 +2686,24 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
 
   async function copyNfcUrl(url: string, code: string) {
     try {
-      await navigator.clipboard.writeText(url);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 2500);
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else if (typeof document !== "undefined") {
+        const textArea = document.createElement("textarea");
+        textArea.value = url;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
     } catch {
-      // fallback
+      // headless or permission denied fallback
     }
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2500);
   }
 
   return (

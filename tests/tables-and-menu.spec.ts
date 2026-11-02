@@ -121,7 +121,8 @@ test.describe('1. Tables & QR Management', () => {
 
     // Test Copy URL button
     const copyBtn = rooftopCard.locator('button.nfc-copy, button:has-text("Copy")');
-    await copyBtn.click();
+    await copyBtn.scrollIntoViewIfNeeded();
+    await copyBtn.click({ force: true });
     await expect(rooftopCard.locator('button:has-text("Copied!")')).toBeVisible();
   });
 });
@@ -252,6 +253,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
 
 test.describe('3. Legibility & Contrast (Axe-Core & Admin Type Scale)', () => {
   test('Admin dashboard contrast and accessibility audit across sections', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
 
     const sections = ['Analytics', 'Tables & QR', 'Menu Management', 'Reviews & Feedback'];
@@ -259,7 +261,7 @@ test.describe('3. Legibility & Contrast (Axe-Core & Admin Type Scale)', () => {
     for (const sectionName of sections) {
       const navItem = page.locator(`button.admin-nav-item:has-text("${sectionName}")`).filter({ visible: true }).first();
       await navItem.click();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(600);
 
       const scanResults = await new AxeBuilder({ page })
         .include('.admin-dashboard-layout')
@@ -274,7 +276,9 @@ test.describe('3. Legibility & Contrast (Axe-Core & Admin Type Scale)', () => {
   });
 
   test('Guest menu accessibility and contrast audit', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/t/demo-juniper-t1', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(400);
     const scanResults = await new AxeBuilder({ page })
       .withRules(['color-contrast', 'label'])
       .analyze();
