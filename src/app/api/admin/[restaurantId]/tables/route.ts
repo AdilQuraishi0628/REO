@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -24,35 +25,65 @@ type TableRow = {
 // In-memory store for demo mode table management & automated testing
 const demoTablesStore = new Map<string, TableRow[]>();
 
-function getDemoTables(restaurantId: string): TableRow[] {
+async function getDemoTables(restaurantId: string): Promise<TableRow[]> {
+  try {
+    const cookieStore = await cookies();
+    const cookieKey = `dt_${restaurantId.slice(-4)}`;
+    const raw = cookieStore.get(cookieKey)?.value;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        demoTablesStore.set(restaurantId, parsed);
+        return parsed;
+      }
+    }
+  } catch {
+    // fallback to memory
+  }
+
+  if (demoTablesStore.has(restaurantId)) {
+    return demoTablesStore.get(restaurantId)!;
+  }
+
   // If venue ends with 0099 or contains 'empty' or 'zero', start with zero tables
   if (
     restaurantId.endsWith("0099") ||
     restaurantId.includes("empty") ||
     restaurantId.includes("zero")
   ) {
-    if (!demoTablesStore.has(restaurantId)) {
-      demoTablesStore.set(restaurantId, []);
-    }
-    return demoTablesStore.get(restaurantId)!;
+    demoTablesStore.set(restaurantId, []);
+    return [];
   }
 
-  if (!demoTablesStore.has(restaurantId)) {
-    const isJuniper = restaurantId.endsWith("0001");
-    const isChai = restaurantId.endsWith("0002");
-    const prefix = isJuniper ? "juniper" : isChai ? "chai" : "royal";
-    const initialRows: TableRow[] = [1, 2, 3, 4, 5].map((num) => ({
-      id: `table-id-${prefix}-${num}`,
-      restaurant_id: restaurantId,
-      table_number: `Table ${num}`,
-      unique_code: `demo-${prefix}-t${num}`,
-      is_active: true,
-      created_at: new Date(Date.now() - (6 - num) * 60000).toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-    demoTablesStore.set(restaurantId, initialRows);
+  const isJuniper = restaurantId.endsWith("0001");
+  const isChai = restaurantId.endsWith("0002");
+  const prefix = isJuniper ? "juniper" : isChai ? "chai" : "royal";
+  const initialRows: TableRow[] = [1, 2, 3, 4, 5].map((num) => ({
+    id: `table-id-${prefix}-${num}`,
+    restaurant_id: restaurantId,
+    table_number: `Table ${num}`,
+    unique_code: `demo-${prefix}-t${num}`,
+    is_active: true,
+    created_at: new Date(Date.now() - (6 - num) * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+  demoTablesStore.set(restaurantId, initialRows);
+  return initialRows;
+}
+
+function saveDemoTables(response: NextResponse, restaurantId: string, tables: TableRow[]): NextResponse {
+  demoTablesStore.set(restaurantId, tables);
+  try {
+    const cookieKey = `dt_${restaurantId.slice(-4)}`;
+    response.cookies.set(cookieKey, JSON.stringify(tables), {
+      path: "/",
+      maxAge: 86400,
+      sameSite: "lax",
+    });
+  } catch {
+    // fallback
   }
-  return demoTablesStore.get(restaurantId)!;
+  return response;
 }
 
 function createUniqueCode() {
@@ -104,8 +135,15 @@ export async function GET(_request: Request, { params }: RouteContext) {
     const url = new URL(_request.url);
     if (url.searchParams.get("reset") === "true") {
       demoTablesStore.delete(restaurantId);
+      const res = NextResponse.json({ tables: [], siteOrigin });
+      try {
+        res.cookies.delete(`dt_${restaurantId.slice(-4)}`);
+      } catch {
+        // fallback
+      }
+      return res;
     }
-    const tables = getDemoTables(restaurantId);
+    const tables = await getDemoTables(restaurantId);
     return NextResponse.json({ tables, siteOrigin });
   }
 
@@ -189,7 +227,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     const prefix = typeof input.prefix === "string" ? input.prefix : "Table ";
 
     if (auth.isDemo) {
-      const demoList = getDemoTables(restaurantId);
+      const demoList = await getDemoTables(restaurantId);
       const createdRows: TableRow[] = [];
       for (let n = start; n <= end; n++) {
         const name = `${prefix}${n}`;
@@ -207,7 +245,8 @@ export async function POST(request: Request, { params }: RouteContext) {
           createdRows.push(row);
         }
       }
-      return NextResponse.json({ tables: createdRows, created: createdRows.length }, { status: 201 });
+      const res = NextResponse.json({ tables: createdRows, created: createdRows.length }, { status: 201 });
+      return saveDemoTables(res, restaurantId, demoList);
     }
 
     const rows = Array.from({ length: count }, (_, index) => ({
@@ -256,7 +295,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   if (auth.isDemo) {
-    const demoList = getDemoTables(restaurantId);
+    const demoList = await getDemoTables(restaurantId);
     const exists = demoList.some(
       (t) => t.table_number.toLowerCase() === rawTableNumber.toLowerCase(),
     );
@@ -276,7 +315,8 @@ export async function POST(request: Request, { params }: RouteContext) {
       updated_at: new Date().toISOString(),
     };
     demoList.push(newTable);
-    return NextResponse.json({ table: newTable }, { status: 201 });
+    const res = NextResponse.json({ table: newTable }, { status: 201 });
+    return saveDemoTables(res, restaurantId, demoList);
   }
 
   // Check duplicate before inserting in production DB
@@ -364,13 +404,14 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   if (auth.isDemo) {
-    const demoList = getDemoTables(restaurantId);
+    const demoList = await getDemoTables(restaurantId);
     const table = demoList.find((t) => t.id === id);
     if (!table) return NextResponse.json({ error: "Table not found." }, { status: 404 });
     if (updates.table_number !== undefined) table.table_number = updates.table_number;
     if (updates.is_active !== undefined) table.is_active = updates.is_active;
     table.updated_at = updates.updated_at;
-    return NextResponse.json({ table });
+    const res = NextResponse.json({ table });
+    return saveDemoTables(res, restaurantId, demoList);
   }
 
   if (!uuidPattern.test(id)) {
@@ -410,12 +451,13 @@ export async function DELETE(request: Request, { params }: RouteContext) {
   }
 
   if (auth.isDemo) {
-    const demoList = getDemoTables(restaurantId);
+    const demoList = await getDemoTables(restaurantId);
     const idx = demoList.findIndex((t) => t.id === tableId);
     if (idx !== -1) {
       demoList.splice(idx, 1);
     }
-    return NextResponse.json({ success: true });
+    const res = NextResponse.json({ success: true });
+    return saveDemoTables(res, restaurantId, demoList);
   }
 
   if (!uuidPattern.test(tableId)) {

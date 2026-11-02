@@ -93,9 +93,9 @@ test.describe('1. Tables & QR Management', () => {
 
     // 8. Test QR downloads (PNG, SVG, PDF) and Copy URL
     const rooftopCard = page.locator('.table-admin-card:has-text("Rooftop 1")');
-    const pngLink = rooftopCard.locator('a[download$="-qr.png"]');
-    const svgLink = rooftopCard.locator('a[download$="-qr.svg"]');
-    const pdfLink = rooftopCard.locator('a[download$="-table-stand.pdf"]');
+    const pngLink = rooftopCard.locator('a[href*="format=png"]');
+    const svgLink = rooftopCard.locator('a[href*="format=svg"]');
+    const pdfLink = rooftopCard.locator('a[href*="format=pdf"]');
 
     await expect(pngLink).toBeVisible();
     await expect(svgLink).toBeVisible();
@@ -136,7 +136,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
 
     for (const vp of viewports) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto('/t/demo-juniper-t1');
+      await page.goto('/t/demo-juniper-t1', { waitUntil: 'domcontentloaded' });
 
       const searchInput = page.locator('.guest-search-input');
       await expect(searchInput).toBeVisible();
@@ -170,7 +170,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
 
   test('Live search filtering, clear (×) button, and combined dietary filters', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/t/demo-juniper-t1');
+    await page.goto('/t/demo-juniper-t1', { waitUntil: 'domcontentloaded' });
 
     const searchInput = page.locator('.guest-search-input');
 
@@ -209,7 +209,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     // 1. Filtered out query on existing venue
-    await page.goto('/t/demo-juniper-t1');
+    await page.goto('/t/demo-juniper-t1', { waitUntil: 'domcontentloaded' });
     const searchInput = page.locator('.guest-search-input');
     await searchInput.fill('nonexistentdishqueryxyz');
 
@@ -227,7 +227,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
     await expect(emptyState).toHaveCount(0);
 
     // 2. Brand new venue with zero menu items
-    await page.goto('/brand-new-cafe');
+    await page.goto('/brand-new-cafe', { waitUntil: 'domcontentloaded' });
     const brandNewEmptyState = page.locator('.guest-empty-state');
     await expect(brandNewEmptyState).toBeVisible();
     await expect(brandNewEmptyState.locator('.guest-empty-title')).toHaveText('Menu coming soon');
@@ -236,7 +236,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
   });
 
   test('Admin Menu Management shows banner when venue has zero items', async ({ page }) => {
-    await page.goto('/demo/admin');
+    await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
     const venueSelect = page.locator('#branch-select:visible, .topbar-mobile-switcher select:visible').first();
     await venueSelect.selectOption({ label: 'Brand New Cafe (Zero Tables Demo)' });
 
@@ -250,7 +250,7 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
 
 test.describe('3. Legibility & Contrast (Axe-Core & Admin Type Scale)', () => {
   test('Admin dashboard contrast and accessibility audit across sections', async ({ page }) => {
-    await page.goto('/demo/admin');
+    await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
 
     const sections = ['Analytics', 'Tables & QR', 'Menu Management', 'Reviews & Feedback'];
 
@@ -272,7 +272,7 @@ test.describe('3. Legibility & Contrast (Axe-Core & Admin Type Scale)', () => {
   });
 
   test('Guest menu accessibility and contrast audit', async ({ page }) => {
-    await page.goto('/t/demo-juniper-t1');
+    await page.goto('/t/demo-juniper-t1', { waitUntil: 'domcontentloaded' });
     const scanResults = await new AxeBuilder({ page })
       .withRules(['color-contrast', 'label'])
       .analyze();
@@ -285,7 +285,7 @@ test.describe('3. Legibility & Contrast (Axe-Core & Admin Type Scale)', () => {
 
   test('Typography scale and 200% zoom behavior without card clipping', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/demo/admin');
+    await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
 
     // Click Analytics nav item first
     const analyticsNav = page.locator('button.admin-nav-item:has-text("Analytics")').filter({ visible: true }).first();
