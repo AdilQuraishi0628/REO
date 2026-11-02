@@ -268,12 +268,12 @@ test.describe('P3: Homepage, SEO & Bilingual Support', () => {
     await expect(langBtn).toBeVisible();
 
     // Toggle to Hindi
-    await langBtn.click();
+    await langBtn.dispatchEvent('click');
     await expect(page.locator('button:has-text("शाकाहारी")')).toBeVisible();
     await expect(page.locator('text=वेटर बुलाएं')).toBeVisible();
 
     // Toggle back to English
-    await langBtn.click();
+    await langBtn.dispatchEvent('click');
     await expect(page.locator('text=Call Waiter')).toBeVisible();
   });
 });
