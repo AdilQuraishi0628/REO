@@ -267,13 +267,22 @@ test.describe('P3: Homepage, SEO & Bilingual Support', () => {
     const langBtn = page.locator('button.guest-circle-btn[aria-label="Toggle Language"]');
     await expect(langBtn).toBeVisible();
 
+    const isMobile = (page.viewportSize()?.width || 0) < 768;
+    const triggerToggle = async () => {
+      if (isMobile) {
+        await langBtn.dispatchEvent('click');
+      } else {
+        await langBtn.click();
+      }
+    };
+
     // Toggle to Hindi
-    await langBtn.dispatchEvent('click');
+    await triggerToggle();
     await expect(page.locator('button:has-text("शाकाहारी")')).toBeVisible();
     await expect(page.locator('text=वेटर बुलाएं')).toBeVisible();
 
     // Toggle back to English
-    await langBtn.dispatchEvent('click');
+    await triggerToggle();
     await expect(page.locator('text=Call Waiter')).toBeVisible();
   });
 });
