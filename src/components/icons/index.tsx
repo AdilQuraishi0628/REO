@@ -131,6 +131,8 @@ export function IconDelete(props: Omit<IconProps, "name">) {
 export function IconQrCode(props: Omit<IconProps, "name">) {
   return <Icon name="qr" {...props} />;
 }
+export { IconQrCode as IconQrcode, IconQrCode as IconQR };
+
 export function IconStaff(props: Omit<IconProps, "name">) {
   return <Icon name="staff" {...props} />;
 }

@@ -387,7 +387,7 @@ export function InteractiveFloorplan() {
             {/* Drawer Cart & Send Simulation */}
             <div className="tt-drawer-footer">
               <div className="tt-cart-summary-line">
-                <span>Total ({totalItemCount} items):</span>
+                <span>Total ({totalItemCount} {totalItemCount === 1 ? "item" : "items"}):</span>
                 <span>₹{calculateSubtotal()}</span>
               </div>
 

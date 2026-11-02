@@ -10,6 +10,7 @@ import LiveOrderTracker, {
   clearPersistedOrder,
 } from "@/components/live-order-tracker";
 import GuestReservationModal from "@/components/guest-reservation-modal";
+import { getCategoryFallbackImage } from "@/lib/category-fallbacks";
 import {
   Icon,
   IconBag,
@@ -267,13 +268,33 @@ export default function TableGuestExperience({
     },
   ], [restaurant.id]);
 
-  const { status: guestRealtimeStatus } = useRealtimeChannel({
+  useRealtimeChannel({
     channelName: `guest-menu-${restaurant.id}`,
     configs: guestChannelConfigs,
     onRefetchNeeded: silentRefetch,
   });
 
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+  const [fallbackBrokenImages, setFallbackBrokenImages] = useState<Record<string, boolean>>({});
+  const [isBrowserOffline, setIsBrowserOffline] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsBrowserOffline(false);
+    const handleOffline = () => setIsBrowserOffline(true);
+
+    if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+      setIsBrowserOffline(!navigator.onLine);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      }
+    };
+  }, []);
 
   // Feedback form state
   const [rating, setRating] = useState(5);
@@ -676,7 +697,7 @@ export default function TableGuestExperience({
       className="tabletap-guest-app"
       style={{ "--restaurant-primary": restaurant.primaryColor || "#722F37" } as React.CSSProperties}
     >
-      {guestRealtimeStatus === "offline" && (
+      {isBrowserOffline && (
         <div className="guest-offline-banner" role="status" aria-live="polite">
           <IconAlert size={14} />
           <span>You are currently offline. Changes will automatically sync when connection returns.</span>
@@ -1006,7 +1027,9 @@ export default function TableGuestExperience({
                 <section className="guest-category-group" key={category.id}>
                   <div className="guest-category-heading-row">
                     <h2 className="guest-category-heading">{category.name}</h2>
-                    <span className="category-item-count">{category.items.length} items</span>
+                    <span className="category-item-count">
+                      {category.items.length} {category.items.length === 1 ? "item" : "items"}
+                    </span>
                   </div>
 
                   <div className="guest-cards-grid">
@@ -1025,26 +1048,41 @@ export default function TableGuestExperience({
                           key={`${category.id}-${item.id}`}
                         >
                           <div className="dish-card-thumb">
-                            {item.imageUrl && !brokenImages[item.id] ? (
-                              <div className="dish-img-wrap">
-                                <Image
-                                  alt={item.name}
-                                  className="dish-img"
-                                  height={88}
-                                  loading="lazy"
-                                  onError={() => {
-                                    setBrokenImages((prev) => ({ ...prev, [item.id]: true }));
-                                  }}
-                                  src={item.imageUrl}
-                                  unoptimized
-                                  width={88}
-                                />
-                              </div>
-                            ) : (
-                              <div className="dish-illustration-box">
-                                <CategoryIcon name={category.name} size={30} />
-                              </div>
-                            )}
+                            {(() => {
+                              const fallbackUrl = getCategoryFallbackImage(category.name);
+                              const hasPrimary = Boolean(item.imageUrl && !brokenImages[item.id]);
+                              const primaryUrl = hasPrimary ? item.imageUrl : null;
+                              const effectiveUrl = primaryUrl || (!fallbackBrokenImages[item.id] ? fallbackUrl : null);
+
+                              if (effectiveUrl) {
+                                return (
+                                  <div className="dish-img-wrap">
+                                    <Image
+                                      alt={item.name}
+                                      className="dish-img"
+                                      height={88}
+                                      loading="lazy"
+                                      onError={() => {
+                                        if (hasPrimary) {
+                                          setBrokenImages((prev) => ({ ...prev, [item.id]: true }));
+                                        } else {
+                                          setFallbackBrokenImages((prev) => ({ ...prev, [item.id]: true }));
+                                        }
+                                      }}
+                                      src={effectiveUrl}
+                                      unoptimized
+                                      width={88}
+                                    />
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="dish-illustration-box">
+                                  <CategoryIcon name={category.name} size={30} />
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           <div className="dish-details">
@@ -1166,7 +1204,9 @@ export default function TableGuestExperience({
               <div className="sheet-header-title">
                 {action === "cart" && (
                   <>
-                    <span className="sheet-eyebrow">{effectiveTableLabel}</span>
+                    <span className="sheet-eyebrow">
+                      {effectiveTableLabel} · {itemCount} {itemCount === 1 ? "item" : "items"}
+                    </span>
                     <h2>Your Order Cart</h2>
                   </>
                 )}

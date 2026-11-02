@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Icon } from "@/components/icons";
+import { Icon, IconQrCode } from "@/components/icons";
 
 interface StepData {
   number: string;
@@ -180,7 +180,7 @@ export function HowItWorksPinned() {
                         position: "relative",
                       }}
                     >
-                      <Icon name="qrcode" size={80} style={{ color: "var(--tt-burgundy)" }} />
+                      <IconQrCode size={80} style={{ color: "var(--tt-burgundy)" }} />
                       <div
                         style={{
                           position: "absolute",

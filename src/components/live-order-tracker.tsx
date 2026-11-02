@@ -358,7 +358,7 @@ export default function LiveOrderTracker({
           onClick={() => setDetailsOpen(!detailsOpen)}
           type="button"
         >
-          <span>View order items ({order.items?.length || 0})</span>
+          <span>View order {order.items?.length === 1 ? "item" : "items"} ({order.items?.length || 0})</span>
           <span className="tracker-total-peek">{currency(order.total_amount)}</span>
           <Icon name="chevron-down" className={`tracker-arrow ${detailsOpen ? "open" : ""}`} size={16} />
         </button>

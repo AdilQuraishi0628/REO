@@ -2025,7 +2025,7 @@ function MenuSection(props: {
 
                   <div className="cat-pill-label">
                     <strong>{cat.name}</strong>
-                    <span className="cat-pill-count">({count} items)</span>
+                    <span className="cat-pill-count">({count} {count === 1 ? "item" : "items"})</span>
                   </div>
 
                   <div className="cat-pill-actions">
