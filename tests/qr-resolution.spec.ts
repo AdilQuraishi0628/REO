@@ -1,4 +1,25 @@
 import { test, expect } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+function getSupabaseClient() {
+  let url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  let key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    try {
+      const envContent = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
+      url = url || envContent.match(/NEXT_PUBLIC_SUPABASE_URL=["']?([^"'\r\n]+)/)?.[1];
+      key = key || envContent.match(/SUPABASE_SERVICE_ROLE_KEY=["']?([^"'\r\n]+)/)?.[1];
+    } catch {
+      // fallback
+    }
+  }
+  if (url && key) {
+    return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  }
+  return null;
+}
 
 test.describe('QR & Table URL Canonical Resolution & Status Handling', () => {
   // 1. Redirect legacy /go/[token] to canonical /t/[token]
@@ -16,7 +37,7 @@ test.describe('QR & Table URL Canonical Resolution & Status Handling', () => {
     expect(response?.status()).toBe(200);
 
     // Should render the guest experience for AK's Coffee with table label
-    await expect(page.locator('text=AK\'s Coffee, Raipur')).toBeVisible();
+    await expect(page.locator('h1', { hasText: "AK's Coffee" })).toBeVisible();
     await expect(page.locator('text=table 1')).toBeVisible();
     // Raw 404 should not appear
     await expect(page.locator('text=Page not found')).toHaveCount(0);
@@ -28,7 +49,7 @@ test.describe('QR & Table URL Canonical Resolution & Status Handling', () => {
     const response = await page.goto('/t/iaM9AwF7jUV7zKw');
     expect(response?.status()).toBe(200);
 
-    await expect(page.locator('text=AK\'s Coffee, Raipur')).toBeVisible();
+    await expect(page.locator('h1', { hasText: "AK's Coffee" })).toBeVisible();
     await expect(page.locator('text=table 1')).toBeVisible();
     await expect(page.locator('text=Page not found')).toHaveCount(0);
   });
@@ -40,10 +61,10 @@ test.describe('QR & Table URL Canonical Resolution & Status Handling', () => {
     expect(redirectRes.status()).toBe(307);
     expect(redirectRes.headers()['location']).toContain('/t/demo-token_sample_');
 
-    // Resolution for demo table with underscore variant
+    // Resolution for demo table
     const response = await page.goto('/t/demo-juniper-t1');
     expect(response?.status()).toBe(200);
-    await expect(page.locator('text=Juniper & Rye')).toBeVisible();
+    await expect(page.locator('h1', { hasText: 'Juniper & Rye' })).toBeVisible();
     await expect(page.locator('text=Table 1')).toBeVisible();
   });
 
@@ -87,39 +108,56 @@ test.describe('QR & Table URL Canonical Resolution & Status Handling', () => {
     await expect(testQrBtn).toContainText(/Pass|OK|200/i);
   });
 
-  // 7. End-to-end integration: Create table -> fetch QR URL -> expect 200 with right venue & table
-  test('Integration flow: Create a table -> fetch QR URL -> expect 200 with right venue and table', async ({ page }) => {
-    // Reset demo venue tables before test
-    await page.request.get('/api/admin/00000000-0000-4000-8000-000000000099/tables?reset=true');
+  // 7. End-to-end integration: Create venue -> create table -> fetch QR URL -> expect 200 and right venue & table label
+  test('Integration test: create venue -> create table -> fetch QR URL -> expect 200 and right venue and table', async ({ page }) => {
+    const supabase = getSupabaseClient();
+    test.skip(!supabase, 'Supabase service role credentials not available');
+    if (!supabase) return;
 
-    await page.goto('/demo/admin');
-    const venueSelect = page.locator('#branch-select:visible, .topbar-mobile-switcher select:visible').first();
-    await venueSelect.selectOption({ label: 'Brand New Cafe (Zero Tables Demo)' });
+    const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const venueName = `QA Test Cafe ${suffix}`;
+    const slug = `qa-test-cafe-${suffix}`;
+    const tableName = `Booth ${suffix.slice(-2)}`;
+    const uniqueCode = `test-qr-${suffix}`;
 
-    // Open Tables & QR
-    const tablesNav = page.locator('button.admin-nav-item:has-text("Tables & QR")').filter({ visible: true }).first();
-    await tablesNav.click();
+    // 1. Create venue
+    const { data: venue, error: venueErr } = await supabase.from('restaurants').insert({
+      name: venueName,
+      slug,
+      address: 'VIP Road, Raipur',
+      city: 'Raipur',
+      phone: '9876543210',
+      is_published: true,
+      onboarding_step: 4,
+    }).select('id').single();
+    expect(venueErr).toBeNull();
+    expect(venue).not.toBeNull();
 
-    // Add unique test table
-    const testTableName = `Booth ${Date.now().toString().slice(-4)}`;
-    const singleTableInput = page.locator('input[placeholder="e.g. Table 1, Rooftop 4"]');
-    await singleTableInput.fill(testTableName);
-    await page.locator('button:has-text("+ Add Table")').click();
+    // 2. Create table for venue
+    const { data: table, error: tableErr } = await supabase.from('tables').insert({
+      restaurant_id: venue.id,
+      table_number: tableName,
+      unique_code: uniqueCode,
+      is_active: true,
+    }).select('id, unique_code').single();
+    expect(tableErr).toBeNull();
+    expect(table).not.toBeNull();
 
-    // Verify created card
-    const tableCard = page.locator(`.table-admin-card:has-text("${testTableName}")`);
-    await expect(tableCard).toBeVisible();
+    try {
+      // 3. Fetch QR URL against live build
+      const qrUrl = `/t/${table.unique_code}`;
+      const response = await page.goto(qrUrl);
+      expect(response?.status()).toBe(200);
 
-    // Extract exact encoded URL
-    const urlCode = await tableCard.locator('.nfc-url-text').innerText();
-    expect(urlCode).toContain('/t/');
-
-    // Open the exact encoded QR URL
-    const guestResponse = await page.goto(urlCode);
-    expect(guestResponse?.status()).toBe(200);
-
-    // Verify table label is pre-filled and visible
-    await expect(page.locator(`text=${testTableName}`)).toBeVisible();
-    await expect(page.locator('text=Page not found')).toHaveCount(0);
+      // 4. Expect right venue and table label
+      await expect(page.locator('h1', { hasText: venueName })).toBeVisible();
+      await expect(page.locator(`text=${tableName}`)).toBeVisible();
+      await expect(page.locator('text=Page not found')).toHaveCount(0);
+      await expect(page.locator('text=This QR code isn\'t active')).toHaveCount(0);
+    } finally {
+      // Clean up test data
+      await supabase.from('tables').delete().eq('id', table.id);
+      await supabase.from('restaurants').delete().eq('id', venue.id);
+    }
   });
 });

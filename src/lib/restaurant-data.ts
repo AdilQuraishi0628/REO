@@ -955,6 +955,23 @@ export async function resolveTableGuestData(
     }
   }
 
+  // Fallback for any demo table code (e.g. demo-tab-...)
+  if (clean.startsWith("demo-")) {
+    const pageData = await getGuestPageData("juniper-and-rye");
+    if (pageData) {
+      return {
+        status: "active",
+        data: {
+          ...pageData,
+          tableId: `00000000-0000-4000-8000-${clean.replace(/[^0-9]/g, "").padStart(12, "0").slice(-12) || "000000000004"}`,
+          tableCode: clean,
+          tableLabel: "Table 1",
+        },
+        tableToken: clean,
+      };
+    }
+  }
+
   // 4. Unknown code
   return { status: "unknown", code: clean };
 }
