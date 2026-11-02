@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SECRET =
+  process.env.TABLE_SECRET_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.JWT_SECRET ||
   "tabletap-table-session-secret-key-raipur-2026";
