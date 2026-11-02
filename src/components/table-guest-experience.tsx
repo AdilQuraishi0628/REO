@@ -33,7 +33,7 @@ import {
 
 const GUEST_STRINGS = {
   en: {
-    searchPlaceholder: "Search coffee, tea, bakery, plates...",
+    searchPlaceholder: "Search dishes",
     vegOnly: "Veg Only",
     all: "All",
     callWaiter: "Call Waiter",
@@ -115,7 +115,9 @@ export default function TableGuestExperience({
   const hasFixedTable = Boolean(tableId && tableCode);
   const hasActiveTableSession = Boolean(tableCode || tableId);
   const [language, setLanguage] = useState<"en" | "hi">("en");
-  const [selectedAllergenFree, setSelectedAllergenFree] = useState<string | null>(null);
+  const [nutFree, setNutFree] = useState(false);
+  const [dairyFree, setDairyFree] = useState(false);
+  const [glutenFree, setGlutenFree] = useState(false);
   const t = GUEST_STRINGS[language];
 
   const [orderType, setOrderType] = useState<"dine_in" | "takeaway">("dine_in");
@@ -502,6 +504,25 @@ export default function TableGuestExperience({
     return cart.find((line) => line.item.id === itemId)?.quantity ?? 0;
   }
 
+  const totalRawItems = useMemo(
+    () => categories.reduce((sum, cat) => sum + cat.items.length, 0),
+    [categories],
+  );
+
+  const activeFilters = useMemo(() => {
+    const list: string[] = [];
+    if (searchQuery.trim()) list.push(`"${searchQuery.trim()}"`);
+    if (vegOnly) list.push("Veg Only");
+    if (nutFree) list.push("Nut-Free");
+    if (dairyFree) list.push("Dairy-Free");
+    if (glutenFree) list.push("Gluten-Free");
+    if (activeCategory !== "all") {
+      const cat = categories.find((c) => c.id === activeCategory);
+      if (cat) list.push(cat.name);
+    }
+    return list;
+  }, [searchQuery, vegOnly, nutFree, dairyFree, glutenFree, activeCategory, categories]);
+
   // Filter items
   const filteredCategories = useMemo(() => {
     return categories
@@ -512,9 +533,19 @@ export default function TableGuestExperience({
             item.dietaryTags.some((tag) => tag.toLowerCase().includes("veg") && !tag.toLowerCase().includes("non")),
           );
         }
-        if (selectedAllergenFree) {
+        if (nutFree) {
           items = items.filter(
-            (item) => !item.dietaryTags.some((tag) => tag.toLowerCase() === selectedAllergenFree.toLowerCase()),
+            (item) => !item.dietaryTags.some((tag) => tag.toLowerCase().includes("nut")),
+          );
+        }
+        if (dairyFree) {
+          items = items.filter(
+            (item) => !item.dietaryTags.some((tag) => tag.toLowerCase().includes("dairy")),
+          );
+        }
+        if (glutenFree) {
+          items = items.filter(
+            (item) => !item.dietaryTags.some((tag) => tag.toLowerCase().includes("gluten")),
           );
         }
         if (searchQuery.trim()) {
@@ -522,8 +553,7 @@ export default function TableGuestExperience({
           items = items.filter(
             (item) =>
               item.name.toLowerCase().includes(q) ||
-              item.description.toLowerCase().includes(q) ||
-              item.dietaryTags.some((tag) => tag.toLowerCase().includes(q)),
+              item.description.toLowerCase().includes(q),
           );
         }
         return { ...cat, items };
@@ -532,7 +562,7 @@ export default function TableGuestExperience({
         if (activeCategory !== "all" && cat.id !== activeCategory) return false;
         return cat.items.length > 0;
       });
-  }, [categories, activeCategory, vegOnly, selectedAllergenFree, searchQuery]);
+  }, [categories, activeCategory, vegOnly, nutFree, dairyFree, glutenFree, searchQuery]);
 
   const totalFilteredItems = useMemo(
     () => filteredCategories.reduce((sum, cat) => sum + cat.items.length, 0),
@@ -997,61 +1027,70 @@ export default function TableGuestExperience({
       ) : (
         <>
           <section className="guest-controls-bar">
-            {/* Search, Veg toggle & Allergen Filters */}
-            <div className="guest-search-row">
+            {/* 1. Full-width Search Input Row (min 44px height, placeholder 'Search dishes') */}
+            <div className="guest-search-full-row">
               <div className="guest-search-input-wrap">
-                <IconSearch className="search-box-icon" size={17} />
+                <IconSearch className="search-box-icon" size={18} />
                 <input
                   aria-label="Search dishes"
                   className="guest-search-input"
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t.searchPlaceholder}
+                  placeholder="Search dishes"
                   type="search"
                   value={searchQuery}
                 />
                 {searchQuery && (
                   <button
                     aria-label="Clear search"
-                    className="search-clear-btn"
+                    className="search-clear-btn guest-search-clear-btn"
                     onClick={() => setSearchQuery("")}
                     type="button"
                   >
-                    <IconClose size={15} />
+                    <IconClose size={16} />
                   </button>
                 )}
               </div>
+            </div>
 
-              {/* Veg Only toggle */}
+            {/* 2. Dietary Filter Chips Row (wrapping or horizontal scroll below search) */}
+            <div
+              aria-label="Dietary preferences"
+              className="guest-dietary-chips-row"
+              role="group"
+            >
               <button
                 aria-pressed={vegOnly}
-                className={`veg-filter-pill ${vegOnly ? "active" : ""}`}
+                className={`dietary-filter-chip ${vegOnly ? "selected" : ""}`}
                 onClick={() => setVegOnly(!vegOnly)}
                 type="button"
               >
                 <IconVeg size={14} />
-                <span>{t.vegOnly}</span>
+                <span>Veg Only</span>
               </button>
-
-              {/* Allergen Filters */}
-              {["Nuts", "Dairy", "Gluten"].map((allergen) => {
-                const isSelected = selectedAllergenFree === allergen;
-                return (
-                  <button
-                    key={allergen}
-                    aria-pressed={isSelected}
-                    className={`veg-filter-pill ${isSelected ? "active" : ""}`}
-                    onClick={() => setSelectedAllergenFree(isSelected ? null : allergen)}
-                    type="button"
-                    style={{
-                      background: isSelected ? "var(--tt-burgundy)" : "transparent",
-                      color: isSelected ? "#ffffff" : "var(--tt-ink)",
-                      borderColor: isSelected ? "var(--tt-burgundy)" : "var(--tt-border)",
-                    }}
-                  >
-                    <span>{allergen === "Nuts" ? "Nut-Free" : `${allergen}-Free`}</span>
-                  </button>
-                );
-              })}
+              <button
+                aria-pressed={nutFree}
+                className={`dietary-filter-chip ${nutFree ? "selected" : ""}`}
+                onClick={() => setNutFree(!nutFree)}
+                type="button"
+              >
+                <span>Nut-Free</span>
+              </button>
+              <button
+                aria-pressed={dairyFree}
+                className={`dietary-filter-chip ${dairyFree ? "selected" : ""}`}
+                onClick={() => setDairyFree(!dairyFree)}
+                type="button"
+              >
+                <span>Dairy-Free</span>
+              </button>
+              <button
+                aria-pressed={glutenFree}
+                className={`dietary-filter-chip ${glutenFree ? "selected" : ""}`}
+                onClick={() => setGlutenFree(!glutenFree)}
+                type="button"
+              >
+                <span>Gluten-Free</span>
+              </button>
             </div>
 
             {/* Category Squircles Scroller matching Page 1 & 2 */}
@@ -1092,16 +1131,30 @@ export default function TableGuestExperience({
 
           {/* 3. Clean Digital Menu Cards matching Page 1 */}
           <main className="guest-menu-container">
-            {totalFilteredItems === 0 ? (
-              <div className="guest-empty-state">
-                <CategoryIcon name="plates" size={40} className="empty-icon-svg" />
-                <h3>No dishes found</h3>
-                <p>Try clearing your search or filter to see more items.</p>
+            {totalRawItems === 0 ? (
+              <div className="guest-empty-state" role="status">
+                <CategoryIcon name="plates" size={44} className="empty-icon-svg" />
+                <h3 className="guest-empty-title">Menu coming soon</h3>
+                <p>Our team is finalizing today&apos;s culinary selections. Please check back shortly.</p>
+              </div>
+            ) : totalFilteredItems === 0 ? (
+              <div className="guest-empty-state" role="status">
+                <CategoryIcon name="plates" size={44} className="empty-icon-svg" />
+                <h3 className="guest-empty-title">No dishes found</h3>
+                <p className="guest-empty-desc">
+                  No dishes matched your active filters
+                  {activeFilters.length > 0 ? (
+                    <>: <strong>{activeFilters.join(", ")}</strong></>
+                  ) : "."}
+                </p>
                 <button
-                  className="guest-btn-outline"
+                  className="guest-btn-outline guest-reset-filters-btn"
                   onClick={() => {
                     setSearchQuery("");
                     setVegOnly(false);
+                    setNutFree(false);
+                    setDairyFree(false);
+                    setGlutenFree(false);
                     setActiveCategory("all");
                   }}
                   type="button"

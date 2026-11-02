@@ -16,6 +16,7 @@ export default function DemoAdminPage() {
     { id: "00000000-0000-4000-8000-000000000001", slug: "juniper-and-rye", name: "Juniper & Rye (Civil Lines, Raipur)" },
     { id: "00000000-0000-4000-8000-000000000002", slug: "chai-and-chutney", name: "Chai & Chutney Bistro (Shankar Nagar, Raipur)" },
     { id: "00000000-0000-4000-8000-000000000003", slug: "the-royal-feast", name: "The Royal Feast (VIP Road, Raipur)" },
+    { id: "00000000-0000-4000-8000-000000000099", slug: "brand-new-cafe", name: "Brand New Cafe (Zero Tables Demo)" },
   ];
 
   return (

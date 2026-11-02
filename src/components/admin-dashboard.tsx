@@ -787,7 +787,7 @@ export default function AdminDashboard({
 
   return (
     <main
-      className="tabletap-admin-app"
+      className="tabletap-admin-app admin-dashboard-layout"
       style={{ "--restaurant-primary": data?.restaurant?.primary_color || "#722F37" } as React.CSSProperties}
     >
       {/* Sidebar Navigation */}
@@ -844,7 +844,7 @@ export default function AdminDashboard({
           {navItems.map((item) => (
             <button
               aria-current={section === item.id ? "page" : undefined}
-              className={`nav-menu-btn ${section === item.id ? "active" : ""}`}
+              className={`nav-menu-btn admin-nav-item ${section === item.id ? "active" : ""}`}
               key={item.id}
               onClick={() => setSection(item.id)}
               type="button"
@@ -934,7 +934,7 @@ export default function AdminDashboard({
         <nav className="admin-mobile-tabs" aria-label="Mobile Navigation">
           {navItems.map((item) => (
             <button
-              className={`mobile-tab-btn ${section === item.id ? "active" : ""}`}
+              className={`mobile-tab-btn admin-nav-item ${section === item.id ? "active" : ""}`}
               key={item.id}
               onClick={() => setSection(item.id)}
               type="button"
@@ -1980,6 +1980,12 @@ function MenuSection(props: {
 
   return (
     <div className="admin-menu-management">
+      {props.items.length === 0 && (
+        <aside aria-label="Menu onboarding banner" className="admin-alert-banner info menu-empty-venue-banner" role="status" style={{ background: "#E8DCC6", border: "1.5px solid #D9CBB8", color: "#3C322C", fontSize: "14px", fontWeight: 600, display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderRadius: "12px", marginBottom: "20px" }}>
+          <Icon name="info" size={18} />
+          <span>Add your first category and item to publish your menu</span>
+        </aside>
+      )}
       {/* 1. Category Manager */}
       <section className="admin-panel-card">
         <div className="panel-header">
@@ -2545,6 +2551,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [message, setMessage] = useState("");
   const [downloadingTableId, setDownloadingTableId] = useState<string | null>(null);
 
@@ -2554,6 +2561,11 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
   }
 
   const loadTables = useCallback(async () => {
+    if (!restaurantId) {
+      setTables([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError("");
     try {
@@ -2564,7 +2576,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
         tables: ManagedTable[];
         siteOrigin: string;
       };
-      setTables(result.tables);
+      setTables(result.tables || []);
       setSiteOrigin(result.siteOrigin || window.location.origin);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load tables.");
@@ -2580,9 +2592,12 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
 
   async function createSingleTable(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!tableNumber.trim()) return;
+    if (!tableNumber.trim()) {
+      setFormError("Table name is required.");
+      return;
+    }
     setIsBusy(true);
-    setError("");
+    setFormError("");
     setMessage("");
     try {
       const response = await fetch(`/api/admin/${restaurantId}/tables`, {
@@ -2595,7 +2610,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
       setTableNumber("");
       await loadTables();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not create table.");
+      setFormError(err instanceof Error ? err.message : "Could not create table.");
     } finally {
       setIsBusy(false);
     }
@@ -2605,12 +2620,20 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
     event.preventDefault();
     const start = Number(bulkStart);
     const end = Number(bulkEnd);
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
-      setError("Please enter a valid numeric range.");
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      setFormError("Please enter valid start and end numbers.");
+      return;
+    }
+    if (start > end) {
+      setFormError("Start number cannot be greater than end number.");
+      return;
+    }
+    if (end - start + 1 > 100) {
+      setFormError("Cannot generate more than 100 tables at once.");
       return;
     }
     setIsBusy(true);
-    setError("");
+    setFormError("");
     setMessage("");
     try {
       const response = await fetch(`/api/admin/${restaurantId}/tables`, {
@@ -2622,7 +2645,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
       setMessage(`${result.created} table(s) generated.`);
       await loadTables();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not generate tables.");
+      setFormError(err instanceof Error ? err.message : "Could not generate tables.");
     } finally {
       setIsBusy(false);
     }
@@ -2673,8 +2696,12 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
 
   return (
     <div className="admin-tables-section">
-      {error && <div className="admin-alert-banner error">{error}</div>}
-      {message && <div className="admin-alert-banner success">{message}</div>}
+      {formError && (
+        <div className="admin-alert-banner error" role="alert" style={{ marginBottom: "16px" }}>
+          <span>{formError}</span>
+        </div>
+      )}
+      {message && <div className="admin-alert-banner success" style={{ marginBottom: "16px" }}>{message}</div>}
 
       <div className="admin-panel-card">
         <div className="panel-header">
@@ -2683,25 +2710,31 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
             <h2>Dining Tables, QR Codes &amp; NFC URLs</h2>
           </div>
           <p className="panel-desc">
-            Each table gets its own unique digital menu URL (`/t/[code]`). Download QR codes for table stands or copy NFC URLs to program tap-to-order NFC tags.
+            Each table gets its own unique digital menu link and QR code. Download table stand QR codes or copy links for NFC tag programming.
           </p>
         </div>
 
         {/* Add Tables row */}
         <div className="table-create-forms-grid">
           {/* Add single table with custom naming */}
-          <form className="single-table-form" onSubmit={createSingleTable}>
+          <form className="single-table-form" noValidate onSubmit={createSingleTable}>
             <h4>Add Single Table (Custom Name)</h4>
             <div className="input-with-btn">
               <input
+                aria-label="Table name"
                 className="admin-input"
+                id="single-table-name-input"
                 maxLength={40}
                 onChange={(e) => setTableNumber(e.target.value)}
-                placeholder="e.g. Table 12, Patio 3, Rooftop VIP"
-                required
+                placeholder="e.g. Table 1, Rooftop 4"
                 value={tableNumber}
               />
-              <button className="admin-btn primary" disabled={isBusy} type="submit">
+              <button
+                className="admin-btn primary"
+                disabled={isBusy}
+                style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                type="submit"
+              >
                 + Add Table
               </button>
             </div>
@@ -2712,16 +2745,24 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
           <form className="bulk-table-form" onSubmit={createBulkTables}>
             <h4>Generate Range of Tables</h4>
             <div className="bulk-inputs-cluster">
-              <input
-                aria-label="Table Prefix"
-                className="admin-input small prefix-input"
-                maxLength={20}
-                onChange={(e) => setTablePrefix(e.target.value)}
-                placeholder="Prefix (e.g. Patio )"
-                value={tablePrefix}
-              />
+              <div className="prefix-field-wrap">
+                <label className="admin-field-label" htmlFor="range-prefix-input" style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--theme-text-primary, #722F37)", marginBottom: "4px" }}>
+                  Name prefix
+                </label>
+                <input
+                  id="range-prefix-input"
+                  aria-label="Name prefix"
+                  className="admin-input small prefix-input"
+                  maxLength={20}
+                  onChange={(e) => setTablePrefix(e.target.value)}
+                  placeholder="Prefix (e.g. Patio )"
+                  style={{ minWidth: "160px", width: "160px" }}
+                  value={tablePrefix}
+                />
+              </div>
               <div className="range-inputs-row">
                 <input
+                  id="range-start-input"
                   aria-label="Start table"
                   className="admin-input small"
                   min="1"
@@ -2731,6 +2772,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
                 />
                 <span>to</span>
                 <input
+                  id="range-end-input"
                   aria-label="End table"
                   className="admin-input small"
                   min="1"
@@ -2738,7 +2780,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
                   type="number"
                   value={bulkEnd}
                 />
-                <button className="admin-btn secondary" disabled={isBusy} type="submit">
+                <button className="admin-btn secondary" disabled={isBusy} style={{ whiteSpace: "nowrap", flexShrink: 0 }} type="submit">
                   Generate Range
                 </button>
               </div>
@@ -2747,12 +2789,82 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
           </form>
         </div>
 
-        {/* Table Cards Grid */}
+        {/* Table Cards Grid or State */}
         <div className="tables-grid-display">
           {isLoading ? (
-            <p className="admin-loading-indicator">Loading tables...</p>
+            <div className="admin-loading-indicator" role="status" style={{ padding: "36px 0", textAlign: "center" }}>
+              <p>Loading tables...</p>
+            </div>
+          ) : error ? (
+            <div
+              className="admin-error-retry-card full-width"
+              role="alert"
+              style={{
+                width: "100%",
+                padding: "28px 24px",
+                background: "#fbf0f0",
+                border: "1px solid #f2c6c6",
+                borderRadius: "14px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "12px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ color: "#722F37" }}>
+                <Icon name="alert" size={26} />
+              </div>
+              <div style={{ maxWidth: "480px" }}>
+                <h3 style={{ margin: "0 0 6px", fontSize: "16px", color: "#722F37", fontWeight: 700 }}>
+                  Could not load restaurant tables
+                </h3>
+                <p style={{ margin: 0, fontSize: "14px", color: "#5A252C", lineHeight: 1.5 }}>
+                  {error}
+                </p>
+              </div>
+              <button
+                className="admin-btn primary"
+                disabled={isLoading}
+                onClick={() => void loadTables()}
+                type="button"
+                style={{ marginTop: "4px" }}
+              >
+                Retry
+              </button>
+            </div>
           ) : tables.length === 0 ? (
-            <p className="admin-empty-text">No tables yet. Add your first table above to generate QR codes.</p>
+            <div
+              className="admin-empty-tables-card admin-empty-state full-width"
+              style={{
+                width: "100%",
+                padding: "44px 24px",
+                textAlign: "center",
+                background: "#FAF6F0",
+                border: "1.5px dashed #D9CBB8",
+                borderRadius: "16px",
+                margin: "12px 0",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  padding: 14,
+                  borderRadius: "50%",
+                  background: "#E8DCC6",
+                  color: "#722F37",
+                  marginBottom: 14,
+                }}
+              >
+                <Icon name="table" size={30} />
+              </div>
+              <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "#3C322C" }}>
+                No tables created yet
+              </h3>
+              <p style={{ margin: "0 auto", maxWidth: "480px", fontSize: "14px", color: "#4A3E38", lineHeight: 1.6 }}>
+                Generate individual table links or a range of QR codes and tap-to-order NFC links above.
+              </p>
+            </div>
           ) : (
             tables.map((table, tIdx) => {
               const guestUrl = `${siteOrigin}/t/${table.unique_code}`;
@@ -2791,25 +2903,51 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
                     >
                       Open Menu ↗
                     </Link>
-                    <a
-                      className="table-link-btn secondary"
-                      download={`${table.table_number.replace(/\s+/g, "-")}-QR.png`}
-                      href={`/api/admin/tables/${table.id}/qr`}
-                      onClick={() => handleDownloadQr(table.id)}
-                    >
-                      {isDownloading ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          <Icon name="check" size={13} animate="draw" />
-                          <span>Saved</span>
-                        </span>
-                      ) : (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          <Icon name="download" size={13} />
-                          <span>Download QR</span>
-                        </span>
-                      )}
-                    </a>
+
+                    {/* Multi-format QR Download buttons */}
+                    <div className="table-qr-download-cluster" style={{ display: "inline-flex", gap: 4 }}>
+                      <a
+                        aria-label={`Download PNG QR code for ${table.table_number}`}
+                        className="table-link-btn secondary"
+                        download={`${table.table_number.replace(/\s+/g, "-")}-QR.png`}
+                        href={`/api/admin/tables/${table.id}/qr?format=png`}
+                        onClick={() => handleDownloadQr(table.id)}
+                        title="Download PNG QR code"
+                      >
+                        {isDownloading ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <Icon name="check" size={13} animate="draw" />
+                            <span>Saved</span>
+                          </span>
+                        ) : (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <Icon name="download" size={13} />
+                            <span>PNG</span>
+                          </span>
+                        )}
+                      </a>
+                      <a
+                        aria-label={`Download SVG QR code for ${table.table_number}`}
+                        className="table-link-btn secondary"
+                        download={`${table.table_number.replace(/\s+/g, "-")}-QR.svg`}
+                        href={`/api/admin/tables/${table.id}/qr?format=svg`}
+                        title="Download vector SVG"
+                      >
+                        <span>SVG</span>
+                      </a>
+                      <a
+                        aria-label={`Download PDF table stand for ${table.table_number}`}
+                        className="table-link-btn secondary"
+                        download={`${table.table_number.replace(/\s+/g, "-")}-Stand.pdf`}
+                        href={`/api/admin/tables/${table.id}/qr?format=pdf`}
+                        title="Download print-ready PDF table stand"
+                      >
+                        <span>PDF</span>
+                      </a>
+                    </div>
+
                     <button
+                      aria-label={`Copy link for ${table.table_number}`}
                       className={`table-link-btn nfc-copy ${isCopied ? "copied" : ""}`}
                       onClick={() => void copyNfcUrl(guestUrl, table.unique_code)}
                       title="Copy URL for NFC tag programming"
@@ -2823,11 +2961,12 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
                       ) : (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                           <Icon name="copy" size={13} />
-                          <span>Copy NFC</span>
+                          <span>Copy Link</span>
                         </span>
                       )}
                     </button>
                     <button
+                      aria-label={`Delete ${table.table_number}`}
                       className="table-delete-icon"
                       onClick={() => void deleteTable(table.id)}
                       title="Delete Table"
