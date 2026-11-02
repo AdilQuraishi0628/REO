@@ -2554,10 +2554,60 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
   const [formError, setFormError] = useState("");
   const [message, setMessage] = useState("");
   const [downloadingTableId, setDownloadingTableId] = useState<string | null>(null);
+  const [qrTestResults, setQrTestResults] = useState<
+    Record<string, { status: "testing" | "pass" | "fail"; message: string }>
+  >({});
 
   function handleDownloadQr(id: string) {
     setDownloadingTableId(id);
     setTimeout(() => setDownloadingTableId(null), 2000);
+  }
+
+  async function testTableQr(table: ManagedTable) {
+    const guestUrl = `${siteOrigin}/t/${table.unique_code}`;
+    setQrTestResults((prev) => ({
+      ...prev,
+      [table.id]: { status: "testing", message: "Testing..." },
+    }));
+
+    try {
+      window.open(guestUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      // Browser popup might be blocked
+    }
+
+    try {
+      const res = await fetch(guestUrl, { method: "HEAD", cache: "no-store" });
+      if (res.ok || res.status === 200 || res.status === 304) {
+        setQrTestResults((prev) => ({
+          ...prev,
+          [table.id]: { status: "pass", message: "Pass (200 OK)" },
+        }));
+        return;
+      }
+    } catch {
+      // Fallback to GET
+    }
+
+    try {
+      const getRes = await fetch(guestUrl, { method: "GET", cache: "no-store" });
+      if (getRes.ok || getRes.status === 200) {
+        setQrTestResults((prev) => ({
+          ...prev,
+          [table.id]: { status: "pass", message: "Pass (200 OK)" },
+        }));
+      } else {
+        setQrTestResults((prev) => ({
+          ...prev,
+          [table.id]: { status: "fail", message: `Failed (${getRes.status})` },
+        }));
+      }
+    } catch {
+      setQrTestResults((prev) => ({
+        ...prev,
+        [table.id]: { status: "fail", message: "Check failed" },
+      }));
+    }
   }
 
   const loadTables = useCallback(async () => {
@@ -2915,6 +2965,57 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
                     >
                       Open Menu ↗
                     </Link>
+
+                    <button
+                      aria-label={`Test QR code for ${table.table_number}`}
+                      className="table-link-btn test-qr-btn"
+                      onClick={() => void testTableQr(table)}
+                      title="Open and test live table URL"
+                      type="button"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontWeight: 600,
+                        background:
+                          qrTestResults[table.id]?.status === "pass"
+                            ? "#EAF7EE"
+                            : qrTestResults[table.id]?.status === "fail"
+                              ? "#FDECEC"
+                              : undefined,
+                        borderColor:
+                          qrTestResults[table.id]?.status === "pass"
+                            ? "#2E7D32"
+                            : qrTestResults[table.id]?.status === "fail"
+                              ? "#D32F2F"
+                              : undefined,
+                        color:
+                          qrTestResults[table.id]?.status === "pass"
+                            ? "#1B5E20"
+                            : qrTestResults[table.id]?.status === "fail"
+                              ? "#C62828"
+                              : undefined,
+                      }}
+                    >
+                      {qrTestResults[table.id]?.status === "testing" ? (
+                        <span>Testing...</span>
+                      ) : qrTestResults[table.id]?.status === "pass" ? (
+                        <>
+                          <Icon name="check" size={13} />
+                          <span>{qrTestResults[table.id].message}</span>
+                        </>
+                      ) : qrTestResults[table.id]?.status === "fail" ? (
+                        <>
+                          <Icon name="close" size={12} />
+                          <span>{qrTestResults[table.id].message}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="qr" size={13} />
+                          <span>Test this QR</span>
+                        </>
+                      )}
+                    </button>
 
                     {/* Multi-format QR Download buttons */}
                     <div className="table-qr-download-cluster" style={{ display: "inline-flex", gap: 4 }}>

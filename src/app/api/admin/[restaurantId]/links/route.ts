@@ -57,7 +57,7 @@ export async function POST(request: Request, { params }: RouteContext) {
             table_label: tableLabel || null,
             created_at: new Date().toISOString(),
           },
-          url: new URL(`/go/${token}`, origin).toString(),
+          url: new URL(`/t/${token}`, origin).toString(),
         },
         { status: 201 },
       );
@@ -74,7 +74,7 @@ export async function POST(request: Request, { params }: RouteContext) {
             table_label: tableLabel || null,
             created_at: new Date().toISOString(),
           },
-          url: new URL(`/go/${token}`, origin).toString(),
+          url: new URL(`/t/${token}`, origin).toString(),
         },
         { status: 201 },
       );
@@ -101,7 +101,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
 
     return NextResponse.json(
-      { link: data, url: new URL(`/go/${token}`, origin).toString() },
+      { link: data, url: new URL(`/t/${token}`, origin).toString() },
       { status: 201 },
     );
   } catch (err: unknown) {

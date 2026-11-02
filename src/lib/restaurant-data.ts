@@ -753,83 +753,219 @@ export async function getGuestPageData(
   };
 }
 
-export async function getTableGuestPageData(
+export type TableResolutionResult =
+  | {
+      status: "active";
+      data: GuestPageData;
+      tableToken: string;
+    }
+  | {
+      status: "unpublished";
+      restaurant: {
+        name: string;
+        slug: string;
+        contactPhone?: string | null;
+        address?: string | null;
+        heroImage?: string | null;
+      };
+      tableLabel?: string;
+    }
+  | {
+      status: "unknown";
+      code: string;
+    };
+
+export async function resolveTableGuestData(
   code: string,
-): Promise<GuestPageData | null> {
-  const normalizedCode = code.trim();
-  const demoMatch = demoTables.find((table) => table.code === normalizedCode);
+): Promise<TableResolutionResult> {
+  const clean = (code || "").trim();
+  if (!clean) {
+    return { status: "unknown", code: clean };
+  }
+
+  // Candidate codes: exact match first, plus trailing dash/underscore variants
+  const candidates = [clean];
+  if (/[-_]+$/.test(clean)) {
+    const stripped = clean.replace(/[-_]+$/, "");
+    if (stripped && !candidates.includes(stripped)) candidates.push(stripped);
+  } else {
+    candidates.push(`${clean}-`, `${clean}_`);
+  }
+
+  const demoMatch = demoTables.find((table) => candidates.includes(table.code));
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Use service role key when available (server-side) to read guest links and unpublished venues safely,
+  // falling back to anon key.
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseKey) {
     if (demoMatch) {
       const pageData = await getGuestPageData(demoMatch.restaurantSlug);
-      if (!pageData) return null;
-      return {
-        ...pageData,
-        tableId: `00000000-0000-4000-8000-${normalizedCode.replace(/[^0-9]/g, "").padStart(12, "0").slice(-12) || "000000000004"}`,
-        tableCode: normalizedCode,
-        tableLabel: demoMatch.tableLabel,
-      };
+      if (pageData) {
+        return {
+          status: "active",
+          data: {
+            ...pageData,
+            tableId: `00000000-0000-4000-8000-${clean.replace(/[^0-9]/g, "").padStart(12, "0").slice(-12) || "000000000004"}`,
+            tableCode: demoMatch.code,
+            tableLabel: demoMatch.tableLabel,
+          },
+          tableToken: demoMatch.code,
+        };
+      }
     }
-    // Fallback if random code
     const pageData = await getGuestPageData("juniper-and-rye");
-    if (!pageData) return null;
+    if (!pageData) return { status: "unknown", code: clean };
     return {
-      ...pageData,
-      tableId: "00000000-0000-4000-8000-000000000004",
-      tableCode: normalizedCode,
-      tableLabel: "Table 4",
+      status: "active",
+      data: {
+        ...pageData,
+        tableId: "00000000-0000-4000-8000-000000000004",
+        tableCode: clean,
+        tableLabel: "Table 4",
+      },
+      tableToken: clean,
     };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: table, error } = await supabase
+  // 1. Check `public.tables` for matching unique_code
+  const { data: tableRows, error: tableError } = await supabase
     .from("tables")
-    .select("id, table_number, restaurant_id")
-    .eq("unique_code", normalizedCode)
-    .eq("is_active", true)
-    .maybeSingle();
+    .select("id, table_number, restaurant_id, is_active, unique_code")
+    .in("unique_code", candidates)
+    .limit(1);
 
-  if (error) {
-    console.warn(`Could not load table from database: ${error.message}`);
+  if (tableError) {
+    console.warn(`Could not check tables in database: ${tableError.message}`);
   }
 
-  if (!table) {
-    if (demoMatch) {
-      const pageData = await getGuestPageData(demoMatch.restaurantSlug);
-      if (!pageData) return null;
+  const table = tableRows && tableRows.length > 0 ? tableRows[0] : null;
+
+  if (table) {
+    const { data: restaurant } = await supabase
+      .from("restaurants")
+      .select("id, name, slug, is_published, phone, address, hero_image, is_active")
+      .eq("id", table.restaurant_id)
+      .maybeSingle();
+
+    if (!restaurant) {
+      return { status: "unknown", code: clean };
+    }
+
+    if (restaurant.is_published === false || table.is_active === false) {
       return {
-        ...pageData,
-        tableId: `00000000-0000-4000-8000-${normalizedCode.replace(/[^0-9]/g, "").padStart(12, "0").slice(-12) || "000000000004"}`,
-        tableCode: normalizedCode,
-        tableLabel: demoMatch.tableLabel,
+        status: "unpublished",
+        restaurant: {
+          name: restaurant.name,
+          slug: restaurant.slug,
+          contactPhone: restaurant.phone,
+          address: restaurant.address,
+          heroImage: restaurant.hero_image,
+        },
+        tableLabel: table.table_number,
       };
     }
-    return null;
+
+    const page = await getGuestPageData(restaurant.slug);
+    if (!page) return { status: "unknown", code: clean };
+    return {
+      status: "active",
+      data: {
+        ...page,
+        tableId: table.id,
+        tableCode: table.unique_code,
+        tableLabel: table.table_number,
+      },
+      tableToken: table.unique_code,
+    };
   }
 
-  const { data: restaurant, error: restaurantError } = await supabase
-    .from("restaurants")
-    .select("slug")
-    .eq("id", table.restaurant_id)
-    .eq("is_published", true)
-    .maybeSingle();
+  // 2. Check `public.guest_links` for matching token
+  const { data: linkRows, error: linkError } = await supabase
+    .from("guest_links")
+    .select("id, token, table_label, restaurant_id")
+    .in("token", candidates)
+    .limit(1);
 
-  if (restaurantError || !restaurant) {
-    return null;
+  if (linkError) {
+    console.warn(`Could not check guest_links in database: ${linkError.message}`);
   }
 
-  const page = await getGuestPageData(restaurant.slug);
-  if (!page) return null;
-  return {
-    ...page,
-    tableId: table.id,
-    tableCode: normalizedCode,
-    tableLabel: table.table_number,
-  };
+  const link = linkRows && linkRows.length > 0 ? linkRows[0] : null;
+
+  if (link) {
+    const { data: restaurant } = await supabase
+      .from("restaurants")
+      .select("id, name, slug, is_published, phone, address, hero_image, is_active")
+      .eq("id", link.restaurant_id)
+      .maybeSingle();
+
+    if (!restaurant) {
+      return { status: "unknown", code: clean };
+    }
+
+    if (restaurant.is_published === false) {
+      return {
+        status: "unpublished",
+        restaurant: {
+          name: restaurant.name,
+          slug: restaurant.slug,
+          contactPhone: restaurant.phone,
+          address: restaurant.address,
+          heroImage: restaurant.hero_image,
+        },
+        tableLabel: link.table_label || "Table 1",
+      };
+    }
+
+    const page = await getGuestPageData(restaurant.slug);
+    if (!page) return { status: "unknown", code: clean };
+    return {
+      status: "active",
+      data: {
+        ...page,
+        tableId: link.id,
+        tableCode: link.token,
+        tableLabel: link.table_label || "Table 1",
+      },
+      tableToken: link.token,
+    };
+  }
+
+  // 3. Fallback to demo tables if recognized
+  if (demoMatch) {
+    const pageData = await getGuestPageData(demoMatch.restaurantSlug);
+    if (pageData) {
+      return {
+        status: "active",
+        data: {
+          ...pageData,
+          tableId: `00000000-0000-4000-8000-${clean.replace(/[^0-9]/g, "").padStart(12, "0").slice(-12) || "000000000004"}`,
+          tableCode: demoMatch.code,
+          tableLabel: demoMatch.tableLabel,
+        },
+        tableToken: demoMatch.code,
+      };
+    }
+  }
+
+  // 4. Unknown code
+  return { status: "unknown", code: clean };
 }
+
+export async function getTableGuestPageData(
+  code: string,
+): Promise<GuestPageData | null> {
+  const result = await resolveTableGuestData(code);
+  if (result.status === "active") {
+    return result.data;
+  }
+  return null;
+}
+

@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   const origin = configuredOrigin
     ? new URL(configuredOrigin).origin
     : new URL(request.url).origin;
-  const target = new URL(`/go/${link.token}`, origin).toString();
+  const target = new URL(`/t/${link.token}`, origin).toString();
   const qr = await QRCode.toBuffer(target, {
     type: "png",
     width: 720,

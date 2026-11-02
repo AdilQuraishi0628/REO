@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 type RouteContext = {
@@ -7,47 +6,20 @@ type RouteContext = {
 
 export async function GET(request: Request, { params }: RouteContext) {
   const { token } = await params;
-  if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) {
-    return NextResponse.redirect(new URL("/", request.url));
+  const cleanToken = (token || "").trim();
+
+  // Tolerate tokens 3 to 64 chars containing letters, numbers, dash, underscore
+  if (!/^[A-Za-z0-9_-]{3,64}$/.test(cleanToken)) {
+    return NextResponse.redirect(new URL("/", request.url), 307);
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "This restaurant link is not configured yet." },
-      { status: 503 },
-    );
-  }
-
-  const supabase = createClient(url, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  // Canonical route is /t/[code]
+  const destination = new URL(`/t/${encodeURIComponent(cleanToken)}`, request.url);
+  // Forward any incoming search query parameters
+  const incomingUrl = new URL(request.url);
+  incomingUrl.searchParams.forEach((value, key) => {
+    destination.searchParams.set(key, value);
   });
-  const { data, error } = await supabase
-    .from("guest_links")
-    .select("restaurant_id, table_label")
-    .eq("token", token)
-    .maybeSingle();
 
-  if (error) {
-    console.error("Could not resolve guest link:", error.message);
-    return NextResponse.json({ error: "Could not open this restaurant link." }, { status: 500 });
-  }
-  if (!data) return new Response("Guest link not found.", { status: 404 });
-
-  const { data: restaurant, error: restaurantError } = await supabase
-    .from("restaurants")
-    .select("slug")
-    .eq("id", data.restaurant_id)
-    .eq("is_published", true)
-    .maybeSingle();
-  if (restaurantError) {
-    console.error("Could not load guest link restaurant:", restaurantError.message);
-    return NextResponse.json({ error: "Could not open this restaurant link." }, { status: 500 });
-  }
-  if (!restaurant) return new Response("Restaurant not found.", { status: 404 });
-
-  const destination = new URL(`/${restaurant.slug}`, request.url);
-  if (data.table_label) destination.searchParams.set("table", data.table_label);
-  return NextResponse.redirect(destination);
+  return NextResponse.redirect(destination, 307);
 }

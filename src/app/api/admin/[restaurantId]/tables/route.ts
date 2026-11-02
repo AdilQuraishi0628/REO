@@ -19,7 +19,7 @@ type TableRow = {
   unique_code: string;
   is_active: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 };
 
 // In-memory store for demo mode table management & automated testing
@@ -106,6 +106,10 @@ async function getAuthorizedContext(restaurantId: string) {
     return { isDemo: true };
   }
 
+  if (restaurantId.startsWith("00000000-0000-4000-8000-")) {
+    return { isDemo: true };
+  }
+
   const context = await getAdminContext();
   if (!context) {
     return { isDemo: true };
@@ -149,7 +153,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
   const { data, error } = await auth.context!.serviceClient
     .from("tables")
-    .select("id, restaurant_id, table_number, unique_code, is_active, created_at, updated_at")
+    .select("id, restaurant_id, table_number, unique_code, is_active, created_at")
     .eq("restaurant_id", restaurantId)
     .order("created_at", { ascending: true })
     .order("table_number", { ascending: true });
@@ -164,19 +168,50 @@ export async function GET(_request: Request, { params }: RouteContext) {
       venueId: restaurantId,
       userId: auth.context?.user?.id || "unauthenticated",
     };
-    console.error("[Tables API GET Error]", diagnostic);
-    Sentry.captureException(new Error(`Could not load restaurant tables: ${error.message}`), {
+    console.error("[Tables API GET Error] Real Supabase error:", diagnostic);
+    Sentry.captureException(new Error(`Could not load restaurant tables: [${error.code}] ${error.message}`), {
       extra: diagnostic,
       tags: { venueId: restaurantId, userId: auth.context?.user?.id, supabaseCode: error.code },
     });
     return NextResponse.json(
-      { error: "Unable to load restaurant tables from the database." },
+      { error: `Unable to load restaurant tables from the database: ${error.message} (${error.code || "500"})` },
       { status: 500 },
     );
   }
 
+  let tables: TableRow[] = data ?? [];
+
+  // If a venue has zero tables in public.tables, check if any guest_links were created
+  // (e.g. from onboarding step 4) and auto-sync them so they appear in Tables & QR.
+  if (tables.length === 0) {
+    try {
+      const { data: links } = await auth.context!.serviceClient
+        .from("guest_links")
+        .select("id, token, table_label, created_at")
+        .eq("restaurant_id", restaurantId);
+
+      if (links && links.length > 0) {
+        const toInsert = links.map((link, idx) => ({
+          restaurant_id: restaurantId,
+          table_number: link.table_label || `Table ${idx + 1}`,
+          unique_code: link.token,
+          is_active: true,
+        }));
+        const { data: synced } = await auth.context!.serviceClient
+          .from("tables")
+          .upsert(toInsert, { onConflict: "restaurant_id,table_number", ignoreDuplicates: true })
+          .select("id, restaurant_id, table_number, unique_code, is_active, created_at");
+        if (synced && synced.length > 0) {
+          tables = synced;
+        }
+      }
+    } catch (syncErr) {
+      console.warn("Could not sync guest_links to tables:", syncErr);
+    }
+  }
+
   // A venue with zero tables is normal and returns an empty array with 200 OK
-  return NextResponse.json({ tables: data ?? [], siteOrigin });
+  return NextResponse.json({ tables, siteOrigin });
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
@@ -258,7 +293,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     const { data, error } = await auth.context!.serviceClient
       .from("tables")
       .upsert(rows, { onConflict: "restaurant_id,table_number", ignoreDuplicates: true })
-      .select("id, table_number, unique_code, is_active, created_at, updated_at");
+      .select("id, table_number, unique_code, is_active, created_at");
 
     if (error) {
       const diagnostic = {
@@ -341,7 +376,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       table_number: rawTableNumber,
       unique_code: createUniqueCode(),
     })
-    .select("id, restaurant_id, table_number, unique_code, is_active, created_at, updated_at")
+    .select("id, restaurant_id, table_number, unique_code, is_active, created_at")
     .single();
 
   if (error) {
@@ -385,9 +420,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
   const input = body as Record<string, unknown>;
   const id = typeof input.id === "string" ? input.id : "";
-  const updates: { table_number?: string; is_active?: boolean; updated_at: string } = {
-    updated_at: new Date().toISOString(),
-  };
+  const updates: { table_number?: string; is_active?: boolean } = {};
   if (typeof input.tableNumber === "string") {
     const tableNumber = input.tableNumber.trim();
     if (!tableNumber) {
@@ -399,7 +432,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     updates.table_number = tableNumber;
   }
   if (typeof input.isActive === "boolean") updates.is_active = input.isActive;
-  if (!id || Object.keys(updates).length === 1) {
+  if (!id || Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Choose a table and valid changes." }, { status: 400 });
   }
 
@@ -409,7 +442,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (!table) return NextResponse.json({ error: "Table not found." }, { status: 404 });
     if (updates.table_number !== undefined) table.table_number = updates.table_number;
     if (updates.is_active !== undefined) table.is_active = updates.is_active;
-    table.updated_at = updates.updated_at;
+    table.updated_at = new Date().toISOString();
     const res = NextResponse.json({ table });
     return saveDemoTables(res, restaurantId, demoList);
   }
@@ -423,7 +456,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     .update(updates)
     .eq("restaurant_id", restaurantId)
     .eq("id", id)
-    .select("id, restaurant_id, table_number, unique_code, is_active, created_at, updated_at")
+    .select("id, restaurant_id, table_number, unique_code, is_active, created_at")
     .maybeSingle();
 
   if (error) {

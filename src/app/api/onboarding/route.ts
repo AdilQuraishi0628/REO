@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         complete: false,
         restaurant,
-        guestUrl: new URL(`/go/${link.token}`, origin).toString(),
+        guestUrl: new URL(`/t/${link.token}`, origin).toString(),
         linkId: link.id,
       });
     }
@@ -316,9 +316,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "We couldn't create your QR code. Please try again." }, { status: 500 });
       }
       link = createdLink;
+
+      // Also ensure this table is created in public.tables so it is immediately visible in Admin -> Tables & QR
+      try {
+        await service.from("tables").upsert({
+          restaurant_id: restaurantId,
+          table_number: tableLabel || "Table 1",
+          unique_code: token,
+          is_active: true,
+        }, { onConflict: "restaurant_id,table_number", ignoreDuplicates: true });
+      } catch (tableInsertErr) {
+        console.warn("Could not mirror onboarding link into tables:", tableInsertErr);
+      }
     }
     const origin = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
-    const guestUrl = new URL(`/go/${link.token}`, origin).toString();
+    const guestUrl = new URL(`/t/${link.token}`, origin).toString();
     const { error: progressError } = await service
       .from("restaurants")
       .update({ onboarding_step: 4 })
