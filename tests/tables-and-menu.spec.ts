@@ -122,7 +122,7 @@ test.describe('1. Tables & QR Management', () => {
     // Test Copy URL button
     const copyBtn = rooftopCard.locator('button.nfc-copy, button:has-text("Copy")');
     await copyBtn.scrollIntoViewIfNeeded();
-    await copyBtn.click({ force: true });
+    await copyBtn.dispatchEvent('click');
     await expect(rooftopCard.locator('button:has-text("Copied!")')).toBeVisible();
   });
 });
@@ -238,9 +238,11 @@ test.describe('2. Guest Menu Search, Chips & Empty States', () => {
   });
 
   test('Admin Menu Management shows banner when venue has zero items', async ({ page }) => {
-    await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
+    await page.goto('/demo/admin');
+    await expect(page.locator('.admin-dashboard-layout')).toBeVisible();
     const venueSelect = page.locator('#branch-select:visible, .topbar-mobile-switcher select:visible').first();
     await venueSelect.selectOption({ label: 'Brand New Cafe (Zero Tables Demo)' });
+    await venueSelect.dispatchEvent('change');
     await expect(page.locator('.topbar-title')).toContainText('Brand New Cafe');
 
     const menuNavItem = page.locator('button.admin-nav-item:has-text("Menu Management")').filter({ visible: true }).first();
@@ -277,7 +279,8 @@ test.describe('3. Legibility & Contrast (Axe-Core & Admin Type Scale)', () => {
 
   test('Guest menu accessibility and contrast audit', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/t/demo-juniper-t1', { waitUntil: 'domcontentloaded' });
+    await page.goto('/t/demo-juniper-t1');
+    await expect(page.locator('.guest-search-input')).toBeVisible();
     await page.waitForTimeout(400);
     const scanResults = await new AxeBuilder({ page })
       .withRules(['color-contrast', 'label'])
