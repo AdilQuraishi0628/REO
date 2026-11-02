@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AuthForm from "@/components/auth-form";
+import AuthShell from "@/components/auth-shell";
 
 export const metadata: Metadata = {
   title: "Sign In · Restaurant Owner & Kitchen Staff | TableTap",
@@ -29,10 +30,12 @@ export default async function AdminLoginPage({ searchParams }: LoginPageProps) {
   const initialTab = tab === "kitchen" ? "kitchen" : "owner";
 
   return (
-    <AuthForm
-      initialNotice={initialNotice}
-      initialTab={initialTab}
-      mode="login"
-    />
+    <AuthShell>
+      <AuthForm
+        initialNotice={initialNotice}
+        initialTab={initialTab}
+        mode="login"
+      />
+    </AuthShell>
   );
 }

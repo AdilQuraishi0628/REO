@@ -1,14 +1,17 @@
 import Link from "next/link";
+import AuthShell from "@/components/auth-shell";
 
 export default function AccountDeletedPage() {
   return (
-    <main className="admin-login-page">
-      <section className="admin-login-card">
-        <span className="eyebrow">Account removed</span>
-        <h1>Your account has been deleted.</h1>
-        <p>Thanks for building with TableTap. Your sign-in has been removed.</p>
-        <Link className="button button-dark loyalty-submit" href="/">Return to TableTap</Link>
-      </section>
-    </main>
+    <AuthShell>
+      <h1>Account deleted</h1>
+      <p className="auth-lead">
+        Thanks for building with TableTap. Your sign-in has been removed.
+      </p>
+
+      <Link className="auth-btn" href="/">
+        <span>Return to TableTap</span>
+      </Link>
+    </AuthShell>
   );
 }

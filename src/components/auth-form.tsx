@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Icon } from "@/components/icons";
+import React, { useEffect, useRef, useState } from "react";
 import { trackProductEvent } from "@/lib/product-analytics";
 
-type AuthMode = "login" | "signup" | "forgot-password" | "reset-password" | "resend-verification";
+type AuthMode =
+  | "login"
+  | "signup"
+  | "forgot-password"
+  | "reset-password"
+  | "resend-verification";
 
 type RestaurantOption = {
   id: string;
@@ -14,42 +18,45 @@ type RestaurantOption = {
   address: string;
 };
 
-const copy: Record<AuthMode, { title: string; description: string; action: string }> = {
+const copy: Record<
+  AuthMode,
+  { title: string; description: string; action: string }
+> = {
   login: {
-    title: "Welcome to TableTap.",
-    description: "Sign in to manage your digital menu, tables, and live orders in Raipur.",
-    action: "Sign in to Dashboard",
+    title: "Welcome back",
+    description: "Sign in to manage your menu, tables and live orders.",
+    action: "Sign in to dashboard",
   },
   signup: {
-    title: "Launch Your Restaurant.",
-    description: "Create an owner workspace to get instant table QR codes and digital ordering.",
-    action: "Create Restaurant Workspace",
+    title: "Launch your restaurant",
+    description: "Create an owner account and get table QR codes and digital ordering.",
+    action: "Create restaurant workspace",
   },
   "forgot-password": {
-    title: "Reset your password.",
-    description: "We'll email you a secure link to choose a new password.",
-    action: "Send Reset Link",
+    title: "Reset your password",
+    description: "Enter your email and we'll send you a link to set a new one.",
+    action: "Send reset link",
   },
   "reset-password": {
-    title: "Choose a new password.",
+    title: "Choose a new password",
     description: "Use at least 8 characters to keep your restaurant account secure.",
     action: "Update Password",
   },
   "resend-verification": {
-    title: "Verify your email.",
-    description: "Enter your email and we'll send a fresh verification link.",
-    action: "Send Verification Link",
+    title: "Verify your email",
+    description: "Enter your email and we'll send you a fresh verification link.",
+    action: "Send verification link",
   },
 };
 
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+
 async function responseError(response: Response) {
   const result: unknown = await response.json().catch(() => null);
-  return (
-    typeof result === "object" &&
+  return typeof result === "object" &&
     result !== null &&
     "error" in result &&
     typeof result.error === "string"
-  )
     ? result.error
     : "Something went wrong. Please try again.";
 }
@@ -67,15 +74,28 @@ export default function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Field-specific inline error messages
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   // Staff Login States
   const [restaurants, setRestaurants] = useState<RestaurantOption[]>([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState("");
-  const [staffPin, setStaffPin] = useState("");
+  const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(false);
+  const staffPin = pinDigits.join("");
+
+  const pinRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ];
 
   const labels = copy[mode];
 
@@ -99,20 +119,101 @@ export default function AuthForm({
     }
   }, [mode]);
 
+  const handlePinChange = (index: number, val: string) => {
+    const cleaned = val.replace(/\D/g, "");
+    const nextDigits = [...pinDigits];
+
+    if (!cleaned) {
+      nextDigits[index] = "";
+      setPinDigits(nextDigits);
+      return;
+    }
+
+    const char = cleaned.slice(-1);
+    nextDigits[index] = char;
+    setPinDigits(nextDigits);
+    setFieldErrors((prev) => ({ ...prev, pin: "" }));
+
+    if (index < 3) {
+      pinRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handlePinKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (e.key === "Backspace" && !pinDigits[index] && index > 0) {
+      e.preventDefault();
+      const nextDigits = [...pinDigits];
+      nextDigits[index - 1] = "";
+      setPinDigits(nextDigits);
+      pinRefs[index - 1].current?.focus();
+    }
+  };
+
+  const handlePinPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = (e.clipboardData.getData("text") || "")
+      .replace(/\D/g, "")
+      .slice(0, 4);
+    if (!pasted) return;
+
+    const nextDigits = [...pinDigits];
+    for (let i = 0; i < 4; i++) {
+      nextDigits[i] = pasted[i] || "";
+    }
+    setPinDigits(nextDigits);
+    setFieldErrors((prev) => ({ ...prev, pin: "" }));
+
+    const focusIndex = Math.min(pasted.length, 3);
+    pinRefs[focusIndex].current?.focus();
+  };
+
   async function submitOwner(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmitting) return;
     setError("");
     setMessage("");
 
-    if (mode === "reset-password" && password !== confirmation) {
-      setError("Those passwords don't match.");
+    const errors: Record<string, string> = {};
+    const trimmedEmail = email.trim();
+
+    if (mode !== "reset-password") {
+      if (!trimmedEmail) {
+        errors.email =
+          mode === "login"
+            ? "Enter the email you signed up with."
+            : "Enter your email address.";
+      } else if (!EMAIL_REGEX.test(trimmedEmail)) {
+        errors.email = "That email doesn’t look right. Check for typos.";
+      }
+    }
+
+    if (mode === "login" || mode === "signup" || mode === "reset-password") {
+      if (!password) {
+        errors.password = "Enter your password.";
+      } else if (
+        (mode === "signup" || mode === "reset-password") &&
+        password.length < 8
+      ) {
+        errors.password = "Password needs at least 8 characters.";
+      }
+    }
+
+    if (mode === "reset-password") {
+      if (!confirmation) {
+        errors.confirmation = "Please confirm your password.";
+      } else if (password !== confirmation) {
+        errors.confirmation = "Those passwords don’t match.";
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
-    if ((mode === "signup" || mode === "reset-password") && password.length < 8) {
-      setError("Password needs at least 8 characters.");
-      return;
-    }
+    setFieldErrors({});
 
     setIsSubmitting(true);
     try {
@@ -142,7 +243,7 @@ export default function AuthForm({
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: trimmedEmail, password }),
       });
 
       if (!response.ok) {
@@ -177,14 +278,20 @@ export default function AuthForm({
     setError("");
     setMessage("");
 
+    const errors: Record<string, string> = {};
     if (!selectedRestaurantId) {
-      setError("Please select your restaurant branch.");
+      errors.restaurant = "Please select your restaurant branch.";
+    }
+    const currentPin = staffPin.trim();
+    if (!currentPin || currentPin.length < 4) {
+      errors.pin = "Enter all 4 digits of the staff PIN.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
-    if (!staffPin || staffPin.length < 4) {
-      setError("Please enter a valid 4-digit staff PIN.");
-      return;
-    }
+    setFieldErrors({});
 
     setIsSubmitting(true);
     try {
@@ -193,7 +300,7 @@ export default function AuthForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           restaurantId: selectedRestaurantId,
-          pin: staffPin.trim(),
+          pin: currentPin,
         }),
       });
 
@@ -213,217 +320,404 @@ export default function AuthForm({
   }
 
   return (
-    <main className="admin-login-page">
-      <Link className="brand-lockup" href="/" aria-label="TableTap Home">
-        <span className="brand-mark">
-          <Icon name="monogram-t" size={24} />
-        </span>
-        <span className="brand-name">TableTap</span>
-      </Link>
+    <>
+      <h1 id="auth-title">{labels.title}</h1>
+      <p className="auth-lead">{labels.description}</p>
 
-      <section className="admin-login-card">
-        <div className="auth-card-header">
-          <span className="eyebrow">Raipur Hospitality Platform</span>
-          <h1>{labels.title}</h1>
-          <p>{labels.description}</p>
+      {/* Role Switcher (Owner vs Kitchen Staff) on Login */}
+      {mode === "login" && (
+        <div
+          className={`auth-seg ${activeTab === "kitchen" ? "r" : ""}`}
+          id="seg"
+          role="tablist"
+        >
+          <b aria-hidden="true" />
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "owner"}
+            className={activeTab === "owner" ? "on" : ""}
+            onClick={() => {
+              setActiveTab("owner");
+              setError("");
+              setFieldErrors({});
+            }}
+          >
+            <svg
+              className="i"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="5" y="11" width="14" height="9" rx="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+            </svg>
+            <span>Restaurant owner</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "kitchen"}
+            className={activeTab === "kitchen" ? "on" : ""}
+            onClick={() => {
+              setActiveTab("kitchen");
+              setError("");
+              setFieldErrors({});
+              setTimeout(() => pinRefs[0].current?.focus(), 50);
+            }}
+          >
+            <svg
+              className="i"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M12 7.5V12l3 2" />
+            </svg>
+            <span>Kitchen staff</span>
+          </button>
         </div>
+      )}
 
-        {initialNotice && (
-          <p aria-live="polite" className="auth-notice">
-            {initialNotice}
-          </p>
-        )}
+      {initialNotice && (
+        <div aria-live="polite" className="auth-notice-banner">
+          {initialNotice}
+        </div>
+      )}
 
-        {/* Role Tab Switcher (Only on Login) */}
-        {mode === "login" && (
-          <div className="auth-role-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "owner"}
-              className={`auth-role-tab ${activeTab === "owner" ? "active" : ""}`}
-              onClick={() => {
-                setActiveTab("owner");
-                setError("");
+      {error && (
+        <div
+          aria-live="assertive"
+          className="auth-notice-banner"
+          style={{
+            borderColor: "var(--auth-err)",
+            color: "var(--auth-err)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {message ? (
+        <div aria-live="polite" className="auth-success-banner">
+          {message}
+        </div>
+      ) : mode === "login" && activeTab === "kitchen" ? (
+        /* Staff PIN Form */
+        <form onSubmit={submitStaff} id="lf" noValidate>
+          <label className="auth-label" htmlFor="staff-restaurant">
+            Restaurant branch
+          </label>
+          {isLoadingRestaurants ? (
+            <div
+              className="auth-f"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                color: "var(--auth-muted)",
               }}
             >
-              <Icon name="lock" size={15} />
-              <span>Restaurant Owner</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "kitchen"}
-              className={`auth-role-tab ${activeTab === "kitchen" ? "active" : ""}`}
-              onClick={() => {
-                setActiveTab("kitchen");
-                setError("");
+              Loading branches...
+            </div>
+          ) : (
+            <select
+              id="staff-restaurant"
+              value={selectedRestaurantId}
+              onChange={(e) => {
+                setSelectedRestaurantId(e.target.value);
+                setFieldErrors((prev) => ({ ...prev, restaurant: "" }));
               }}
+              required
+              className={`auth-f ${fieldErrors.restaurant ? "bad" : ""}`}
             >
-              <Icon name="clock" size={15} />
-              <span>Kitchen / Staff PIN</span>
-            </button>
-          </div>
-        )}
+              {restaurants.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} {r.address ? `(${r.address})` : ""}
+                </option>
+              ))}
+            </select>
+          )}
+          {fieldErrors.restaurant && (
+            <div className="auth-er">{fieldErrors.restaurant}</div>
+          )}
 
-        {message ? (
-          <p aria-live="polite" className="auth-success-message">
-            {message}
-          </p>
-        ) : mode === "login" && activeTab === "kitchen" ? (
-          /* Staff PIN Form */
-          <form onSubmit={submitStaff} className="auth-form-content">
-            <label className="loyalty-label" htmlFor="staff-restaurant">
-              Select Restaurant Branch
-              {isLoadingRestaurants ? (
-                <div className="auth-select-loading">Loading Raipur restaurants...</div>
-              ) : (
-                <select
-                  id="staff-restaurant"
-                  value={selectedRestaurantId}
-                  onChange={(e) => setSelectedRestaurantId(e.target.value)}
-                  required
-                  className="auth-input-select"
-                >
-                  {restaurants.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} ({r.address || "Raipur"})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </label>
-
-            <label className="loyalty-label" htmlFor="staff-pin">
-              Staff Security PIN
+          <label className="auth-label" id="pl" htmlFor="staff-pin">
+            Staff PIN
+          </label>
+          {/* Hidden input for backward compatibility and test selectors */}
+          <input
+            type="hidden"
+            id="staff-pin"
+            name="staffPin"
+            value={staffPin}
+          />
+          <div
+            className="auth-pins"
+            id="pins"
+            role="group"
+            aria-labelledby="pl"
+          >
+            {[0, 1, 2, 3].map((i) => (
               <input
-                id="staff-pin"
-                type="password"
+                key={i}
+                ref={pinRefs[i]}
+                className={`auth-f ${fieldErrors.pin ? "bad" : ""}`}
+                maxLength={1}
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={8}
-                placeholder="Enter PIN"
-                value={staffPin}
-                onChange={(e) => setStaffPin(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="auth-input-pin"
+                aria-label={`Digit ${i + 1}`}
+                value={pinDigits[i]}
+                onChange={(e) => handlePinChange(i, e.target.value)}
+                onKeyDown={(e) => handlePinKeyDown(i, e)}
+                onPaste={handlePinPaste}
               />
-            </label>
+            ))}
+          </div>
+          {fieldErrors.pin && <div className="auth-er" id="e3">{fieldErrors.pin}</div>}
 
-            <div className="staff-pin-hint">
-              <Icon name="info" size={14} />
-              <span>PIN is configured by the restaurant owner in Admin Settings.</span>
-            </div>
+          <p className="auth-hint">
+            Your manager sets this PIN in Admin settings.
+          </p>
 
-            {error && (
-              <p aria-live="assertive" className="form-error">
-                {error}
-              </p>
-            )}
-
-            <button
-              className="button button-dark loyalty-submit"
-              disabled={isSubmitting || isLoadingRestaurants}
-              type="submit"
-            >
-              {isSubmitting ? "Verifying PIN..." : "Open Kitchen Display (KDS) →"}
-            </button>
-          </form>
-        ) : (
-          /* Owner Email/Password Form */
-          <form onSubmit={submitOwner} className="auth-form-content">
-            {mode !== "reset-password" && (
-              <label className="loyalty-label" htmlFor="auth-email">
-                Email Address
-                <input
-                  autoComplete="email"
-                  id="auth-email"
-                  maxLength={254}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                  type="email"
-                  placeholder="owner@yourrestaurant.in"
-                  value={email}
-                />
+          <button
+            className={`auth-btn ${isSubmitting ? "ld" : ""}`}
+            id="lb"
+            disabled={isSubmitting || isLoadingRestaurants}
+            type="submit"
+          >
+            <span>
+              {isSubmitting ? "Verifying PIN..." : "Open kitchen display"}
+            </span>
+          </button>
+        </form>
+      ) : (
+        /* Owner Form */
+        <form onSubmit={submitOwner} id="mo-form" noValidate>
+          {mode !== "reset-password" && (
+            <div>
+              <label className="auth-label" htmlFor="auth-email">
+                Email address
               </label>
-            )}
+              <input
+                autoComplete="email"
+                id="auth-email"
+                maxLength={254}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setFieldErrors((prev) => ({ ...prev, email: "" }));
+                }}
+                required
+                type="email"
+                placeholder="owner@yourrestaurant.in"
+                value={email}
+                className={`auth-f ${fieldErrors.email ? "bad" : ""}`}
+              />
+              {fieldErrors.email && (
+                <div className="auth-er" id="e1">
+                  {fieldErrors.email}
+                </div>
+              )}
+            </div>
+          )}
 
-            {(mode === "login" || mode === "signup" || mode === "reset-password") && (
-              <label className="loyalty-label" htmlFor="auth-password">
-                {mode === "login" ? "Password" : "New Password"}
+          {(mode === "login" ||
+            mode === "signup" ||
+            mode === "reset-password") && (
+            <div>
+              <label className="auth-label" htmlFor="auth-password">
+                {mode === "login" ? "Password" : "New password"}
+              </label>
+              <div className="auth-fw">
                 <input
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
                   id="auth-password"
                   maxLength={256}
                   minLength={mode === "login" ? 1 : 8}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setFieldErrors((prev) => ({ ...prev, password: "" }));
+                  }}
                   required
-                  type="password"
-                  placeholder="••••••••••••"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={
+                    mode === "login"
+                      ? "••••••••••••"
+                      : "At least 8 characters"
+                  }
                   value={password}
+                  className={`auth-f ${fieldErrors.password ? "bad" : ""}`}
                 />
-              </label>
-            )}
+                <button
+                  type="button"
+                  className="auth-eye"
+                  id="eye"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 3l18 18M10 6a9 9 0 0 1 2-.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-3 3.8M6.2 7.6A16 16 0 0 0 2.5 12S6 18.5 12 18.5c1.4 0 2.7-.3 3.8-.8" />
+                    </svg>
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                      <circle cx="12" cy="12" r="2.6" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {fieldErrors.password && (
+                <div className="auth-er" id="e2">
+                  {fieldErrors.password}
+                </div>
+              )}
+            </div>
+          )}
 
-            {mode === "reset-password" && (
-              <label className="loyalty-label" htmlFor="auth-confirm-password">
-                Confirm New Password
+          {mode === "reset-password" && (
+            <div>
+              <label className="auth-label" htmlFor="auth-confirm-password">
+                Confirm new password
+              </label>
+              <div className="auth-fw">
                 <input
                   autoComplete="new-password"
                   id="auth-confirm-password"
                   maxLength={256}
                   minLength={8}
-                  onChange={(event) => setConfirmation(event.target.value)}
+                  onChange={(event) => {
+                    setConfirmation(event.target.value);
+                    setFieldErrors((prev) => ({ ...prev, confirmation: "" }));
+                  }}
                   required
-                  type="password"
+                  type={showConfirmation ? "text" : "password"}
                   placeholder="••••••••••••"
                   value={confirmation}
+                  className={`auth-f ${fieldErrors.confirmation ? "bad" : ""}`}
                 />
-              </label>
-            )}
-
-            {error && (
-              <p aria-live="assertive" className="form-error">
-                {error}
-              </p>
-            )}
-
-            <button
-              className="button button-dark loyalty-submit"
-              disabled={isSubmitting}
-              type="submit"
-            >
-              {isSubmitting ? "Please wait..." : labels.action}
-            </button>
-          </form>
-        )}
-
-        <nav aria-label="Account links" className="auth-links">
-          {mode === "login" && (
-            <>
-              <Link href="/admin/forgot-password">Forgot password?</Link>
-              <Link href="/admin/verify-email">Resend verification</Link>
-              <Link href="/admin/signup">Create a restaurant account</Link>
-            </>
+                <button
+                  type="button"
+                  className="auth-eye"
+                  onClick={() => setShowConfirmation((prev) => !prev)}
+                  aria-label={
+                    showConfirmation ? "Hide password" : "Show password"
+                  }
+                >
+                  {showConfirmation ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 3l18 18M10 6a9 9 0 0 1 2-.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-3 3.8M6.2 7.6A16 16 0 0 0 2.5 12S6 18.5 12 18.5c1.4 0 2.7-.3 3.8-.8" />
+                    </svg>
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                      <circle cx="12" cy="12" r="2.6" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {fieldErrors.confirmation && (
+                <div className="auth-er">{fieldErrors.confirmation}</div>
+              )}
+            </div>
           )}
-          {mode === "signup" && <Link href="/admin/login">Already have an account? Sign in</Link>}
-          {mode === "forgot-password" && <Link href="/admin/login">Back to sign in</Link>}
-          {mode === "reset-password" && <Link href="/admin/login">Return to sign in</Link>}
-          {mode === "resend-verification" && <Link href="/admin/login">Back to sign in</Link>}
-        </nav>
-      </section>
 
-      <LegalFooter />
-    </main>
+          <button
+            className={`auth-btn ${isSubmitting ? "ld" : ""}`}
+            id="lb-owner"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            <span>
+              {isSubmitting
+                ? "Please wait..."
+                : labels.action}
+            </span>
+          </button>
+        </form>
+      )}
+
+      {/* Navigation links below the form */}
+      <nav aria-label="Account links" className="auth-links">
+        {mode === "login" && (
+          <>
+            <Link href="/admin/forgot-password">Forgot password?</Link>
+            <Link href="/admin/verify-email">Resend verification</Link>
+            <Link href="/admin/signup">Create a restaurant account</Link>
+          </>
+        )}
+        {mode === "signup" && (
+          <span>
+            Already have an account? <Link href="/admin/login">Sign in</Link>
+          </span>
+        )}
+        {mode === "forgot-password" && (
+          <Link href="/admin/login">Back to sign in</Link>
+        )}
+        {mode === "reset-password" && (
+          <Link href="/admin/login">Return to sign in</Link>
+        )}
+        {mode === "resend-verification" && (
+          <Link href="/admin/login">Back to sign in</Link>
+        )}
+      </nav>
+    </>
   );
 }
 
 export function LegalFooter() {
   return (
-    <footer className="auth-legal-footer">
-      <Link href="/privacy">Privacy Policy</Link>
-      <Link href="/terms">Terms of Service</Link>
+    <footer className="auth-foot">
+      <Link href="/privacy">Privacy policy</Link>
+      <Link href="/terms">Terms of service</Link>
     </footer>
   );
 }

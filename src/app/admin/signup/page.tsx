@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AuthForm from "@/components/auth-form";
+import AuthShell from "@/components/auth-shell";
 
 export const metadata: Metadata = {
   title: "Create Restaurant Workspace | TableTap Raipur",
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function SignupPage() {
-  return <AuthForm mode="signup" />;
+  return (
+    <AuthShell>
+      <AuthForm mode="signup" />
+    </AuthShell>
+  );
 }
