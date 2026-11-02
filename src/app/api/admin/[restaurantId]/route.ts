@@ -290,6 +290,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const enableOrdering = typeof input.enableOrdering === "boolean" ? input.enableOrdering : undefined;
   const enableFeedback = typeof input.enableFeedback === "boolean" ? input.enableFeedback : undefined;
   const enableGoogleReviews = typeof input.enableGoogleReviews === "boolean" ? input.enableGoogleReviews : undefined;
+  const isPublished =
+    typeof input.isPublished === "boolean"
+      ? input.isPublished
+      : typeof input.is_published === "boolean"
+        ? input.is_published
+        : undefined;
 
   const loyaltyEnabled = typeof input.loyaltyEnabled === "boolean" ? input.loyaltyEnabled : undefined;
   const loyaltyType = input.loyaltyType === "stamps" || input.loyaltyType === "points" ? input.loyaltyType : undefined;
@@ -335,6 +341,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   if (enableOrdering !== undefined) updatePayload.enable_ordering = enableOrdering;
   if (enableFeedback !== undefined) updatePayload.enable_feedback = enableFeedback;
   if (enableGoogleReviews !== undefined) updatePayload.enable_google_reviews = enableGoogleReviews;
+  if (isPublished !== undefined) updatePayload.is_published = isPublished;
 
   if (loyaltyEnabled !== undefined) updatePayload.loyalty_enabled = loyaltyEnabled;
   if (loyaltyType !== undefined) updatePayload.loyalty_type = loyaltyType;
