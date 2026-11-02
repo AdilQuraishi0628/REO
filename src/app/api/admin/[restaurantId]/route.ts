@@ -15,8 +15,12 @@ type RouteContext = {
 export async function GET(_request: Request, { params }: RouteContext) {
   const { restaurantId } = await params;
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    if (restaurantId.startsWith("00000000-0000-4000-8000-")) {
+  if (
+    restaurantId.startsWith("00000000-0000-4000-8000-") ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    if (restaurantId.startsWith("00000000-0000-4000-8000-") || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const demo =
         Object.values(demoRestaurants).find((entry) => entry.restaurant.id === restaurantId) ??
         demoRestaurants["juniper-and-rye"];
@@ -353,9 +357,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     .eq("id", restaurantId);
 
   if (error && /staff_pin_hash/i.test(error.message)) {
+    const hashed = (updatePayload as Record<string, unknown>).staff_pin_hash;
     delete (updatePayload as Record<string, unknown>).staff_pin_hash;
-    if (kitchenPin !== undefined) {
-      (updatePayload as Record<string, unknown>).kitchen_pin = kitchenPin;
+    if (hashed) {
+      (updatePayload as Record<string, unknown>).kitchen_pin = hashed;
     }
     const retry = await context.serviceClient
       .from("restaurants")

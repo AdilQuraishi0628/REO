@@ -262,7 +262,7 @@ export function InteractiveKDSBoard() {
         {/* Link to Live KDS Route */}
         <div style={{ textAlign: "center", marginTop: "44px" }}>
           <Link
-            href="/kitchen"
+            href="/demo/kitchen"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -278,7 +278,7 @@ export function InteractiveKDSBoard() {
             }}
             data-cursor="Open KDS"
           >
-            <span>Launch Live Kitchen KDS View</span>
+            <span>Launch Live Kitchen KDS</span>
             <Icon name="arrow-right" size={14} />
           </Link>
         </div>

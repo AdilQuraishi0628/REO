@@ -18,10 +18,24 @@ type TicketItem = {
   isOld: boolean;
 };
 
-export default function AuthShell({ children }: { children: React.ReactNode }) {
+export default function AuthShell({
+  children,
+  panelSlot,
+  panelTitle,
+  panelSubtitle,
+  userEmail,
+}: {
+  children: React.ReactNode;
+  panelSlot?: React.ReactNode;
+  panelTitle?: React.ReactNode;
+  panelSubtitle?: string;
+  userEmail?: string;
+}) {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
 
   useEffect(() => {
+    if (panelSlot) return;
+
     let index = 0;
     let nextId = 1;
 
@@ -52,39 +66,64 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
       clearTimeout(t2);
       clearInterval(interval);
     };
-  }, []);
+  }, [panelSlot]);
 
   return (
     <div className="auth-wrap">
       <aside className="auth-panel">
-        <Link href="/" className="auth-logo" aria-label="TableTap Home">
-          <i>T</i>
-          <span>TableTap</span>
-        </Link>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            position: "relative",
+            zIndex: 1,
+            flexWrap: "wrap",
+            gap: "8px",
+          }}
+        >
+          <Link href="/" className="auth-logo" aria-label="TableTap Home">
+            <i>T</i>
+            <span>TableTap</span>
+          </Link>
+          {userEmail && <span className="auth-user-tag">{userEmail}</span>}
+        </div>
 
         <div className="auth-panel-mid">
-          <h2>
-            Every order, <em>straight to the kitchen.</em>
-          </h2>
-          <p>
-            Guests scan the table QR and order from their phone. Your team sees it
-            the moment it&apos;s sent.
-          </p>
+          {panelTitle ? (
+            <h2>{panelTitle}</h2>
+          ) : (
+            <h2>
+              Every order, <em>straight to the kitchen.</em>
+            </h2>
+          )}
+          {panelSubtitle ? (
+            <p>{panelSubtitle}</p>
+          ) : (
+            <p>
+              Guests scan the table QR and order from their phone. Your team sees it
+              the moment it&apos;s sent.
+            </p>
+          )}
 
-          <div className="auth-tk" id="tk" aria-hidden="true">
-            {tickets.map((t) => (
-              <div
-                key={t.id}
-                className={`auth-t ${t.isOld ? "old" : ""}`}
-              >
-                <div>
-                  <b>{t.table}</b>
-                  <span>{t.items}</span>
+          {panelSlot ? (
+            panelSlot
+          ) : (
+            <div className="auth-tk" id="tk" aria-hidden="true">
+              {tickets.map((t) => (
+                <div
+                  key={t.id}
+                  className={`auth-t ${t.isOld ? "old" : ""}`}
+                >
+                  <div>
+                    <b>{t.table}</b>
+                    <span>{t.items}</span>
+                  </div>
+                  <small>New</small>
                 </div>
-                <small>New</small>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="auth-pf">Made in Raipur</div>

@@ -15,7 +15,10 @@ function optionalText(value: unknown, maxLength: number): string | null | undefi
     return undefined;
   }
 
-  const normalized = value.trim();
+  const normalized = value
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>]/g, "")
+    .trim();
   if (normalized.length > maxLength) {
     return undefined;
   }

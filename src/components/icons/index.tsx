@@ -142,8 +142,37 @@ export function IconWifi(props: Omit<IconProps, "name">) {
 export function IconStar(props: Omit<IconProps, "name">) {
   return <Icon name="star" {...props} />;
 }
-export function IconVeg(props: Omit<IconProps, "name">) {
-  return <Icon name="veg" {...props} />;
+export function IconVeg({ size = 15, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-label="Vegetarian"
+      style={{ display: "inline-block", verticalAlign: "middle" }}
+    >
+      <rect x="2.5" y="2.5" width="19" height="19" rx="3.5" stroke="#166534" strokeWidth="2" fill="#FFFFFF" />
+      <circle cx="12" cy="12" r="5" fill="#166534" />
+    </svg>
+  );
+}
+export function IconNonVeg({ size = 15, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-label="Non-Vegetarian"
+      style={{ display: "inline-block", verticalAlign: "middle" }}
+    >
+      <rect x="2.5" y="2.5" width="19" height="19" rx="3.5" stroke="#991B1B" strokeWidth="2" fill="#FFFFFF" />
+      <circle cx="12" cy="12" r="5" fill="#991B1B" />
+    </svg>
+  );
 }
 export function IconMonogramT({ size = 28, className = "" }: { size?: number; className?: string }) {
   return (

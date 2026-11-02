@@ -109,10 +109,10 @@ export function InteractiveLoyaltyReviews() {
     <section className="tt-section-wrap" id="loyalty">
       <div className="tt-editorial-header">
         <span className="tt-editorial-eyebrow">Guest Retention &amp; Reputation</span>
-        <h2>Frictionless Loyalty &amp; Protected Reviews</h2>
+        <h2>Frictionless Loyalty &amp; Direct Reviews</h2>
         <p>
           Two built-in growth engines with zero friction. Diners earn stamps with their mobile number,
-          and public Google reviews are safeguarded automatically.
+          and public Google reviews are paired with private manager feedback.
         </p>
       </div>
 
@@ -120,7 +120,7 @@ export function InteractiveLoyaltyReviews() {
         {/* Interactive Demo 1: Loyalty Stamp Card */}
         <div className="tt-demo-card">
           <span className="tt-card-badge">Zero-App Loyalty</span>
-          <h3>The Tactile Digital Stamp Card</h3>
+          <h3>Digital Stamp Card</h3>
           <p>
             No apps to download. Guests enter their phone number at checkout or on table order.
             Tap the stamps below to simulate a dining visit:
@@ -147,7 +147,7 @@ export function InteractiveLoyaltyReviews() {
                   Juniper &amp; Rye Coffee Pass
                 </strong>
                 <span style={{ display: "block", fontSize: "11px", color: "var(--tt-ink-muted)" }}>
-                  Goal: 5 visits = Free Single-Origin Pour-Over
+                  Goal: 5 visits = Free Flat White or Cold Brew
                 </span>
               </div>
               <span
@@ -191,7 +191,7 @@ export function InteractiveLoyaltyReviews() {
             {rewardUnlocked ? (
               <div className="tt-stamp-reward-banner" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                 <Icon name="spark" size={16} />
-                <span>Reward unlocked! Free specialty pour-over ready for Table 4!</span>
+                <span>Reward unlocked! Free Flat White or Cold Brew ready for Table 4!</span>
               </div>
             ) : (
               <div style={{ textAlign: "center", fontSize: "11px", color: "var(--tt-ink-muted)" }}>
@@ -201,13 +201,13 @@ export function InteractiveLoyaltyReviews() {
           </div>
         </div>
 
-        {/* Interactive Demo 2: Google Reviews Booster & Safeguard */}
+        {/* Interactive Demo 2: Direct Google Reviews & Private Feedback */}
         <div className="tt-demo-card">
-          <span className="tt-card-badge">Reputation engine</span>
-          <h3>Smart Google Review Safeguard</h3>
+          <span className="tt-card-badge">Policy-Compliant Reviews</span>
+          <h3>Direct Google Reviews &amp; Private Feedback</h3>
           <p>
-            Filter happy praise to Google Maps, while capturing critiques privately before they become
-            permanent bad ratings. Select a star rating below to test the logic:
+            Every guest gets direct access to your Google Maps review link, alongside an optional
+            private channel to message management. Zero review gating, fully compliant with Google policy:
           </p>
 
           <div className="tt-star-simulator">
@@ -236,28 +236,30 @@ export function InteractiveLoyaltyReviews() {
               })}
             </div>
 
-            {/* Smart Routing Explanation */}
-            {selectedRating >= 4 ? (
-              <div className="tt-review-feedback-outcome google">
-                <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <Icon name="check" size={14} />
-                  <span>4–5 stars detected:</span>
-                </strong>
-                <p style={{ margin: "4px 0 0", fontSize: "12px" }}>
-                  Guest is prompted with a 1-tap redirect straight to your Google Maps review dialog in Raipur.
-                </p>
+            {/* Non-gated Dual Options */}
+            <div className="tt-review-feedback-outcome google" style={{ marginTop: "12px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                  <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Icon name="check" size={14} />
+                    <span>Rating: {selectedRating} of 5 Stars Selected</span>
+                  </strong>
+                  <span style={{ fontSize: "11px", color: "var(--tt-ink-muted)", fontStyle: "italic" }}>
+                    Shown to all guests
+                  </span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  <div style={{ padding: "8px", background: "var(--tt-cream)", borderRadius: "8px", border: "1px solid var(--tt-border)" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--tt-ink)", display: "block" }}>1. Public Google Review</span>
+                    <span style={{ fontSize: "10px", color: "var(--tt-ink-muted)" }}>Direct link to leave honest review on Google Maps.</span>
+                  </div>
+                  <div style={{ padding: "8px", background: "var(--tt-cream)", borderRadius: "8px", border: "1px solid var(--tt-border)" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--tt-ink)", display: "block" }}>2. Private Manager Note</span>
+                    <span style={{ fontSize: "10px", color: "var(--tt-ink-muted)" }}>Optional direct message to resolve grievances quickly.</span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="tt-review-feedback-outcome manager">
-                <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <Icon name="lock" size={14} />
-                  <span>Private feedback protection:</span>
-                </strong>
-                <p style={{ margin: "4px 0 0", fontSize: "12px" }}>
-                  Critique is routed directly to the restaurant owner&apos;s WhatsApp/Dashboard, keeping public Google ratings safe.
-                </p>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

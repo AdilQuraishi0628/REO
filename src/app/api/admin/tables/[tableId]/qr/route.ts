@@ -5,6 +5,7 @@ import {
   getAdminContext,
   uuidPattern,
 } from "@/lib/admin-auth";
+import { generateTableToken } from "@/lib/table-token";
 
 type RouteContext = {
   params: Promise<{ tableId: string }>;
@@ -37,7 +38,8 @@ export async function GET(request: Request, { params }: RouteContext) {
   const origin = configuredOrigin
     ? new URL(configuredOrigin).origin
     : new URL(request.url).origin;
-  const target = new URL(`/t/${table.unique_code}`, origin).toString();
+  const token = generateTableToken(table.unique_code);
+  const target = new URL(`/t/${table.unique_code}?token=${token}`, origin).toString();
   const format = new URL(request.url).searchParams.get("format");
   if (format === "svg") {
     const svg = await QRCode.toString(target, {

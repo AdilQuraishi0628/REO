@@ -74,11 +74,19 @@ export default function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [restaurantName, setRestaurantName] = useState("");
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Visible password rules verification
+  const hasMinLength = password.length >= 8;
+  const hasLetter = /[a-zA-Z]/.test(password);
+  const hasNumberOrSymbol = /[\d\W_]/.test(password);
+  const isPasswordValid = hasMinLength && hasLetter && hasNumberOrSymbol;
 
   // Field-specific inline error messages
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -178,6 +186,13 @@ export default function AuthForm({
 
     const errors: Record<string, string> = {};
     const trimmedEmail = email.trim();
+    const trimmedRestaurant = restaurantName.trim();
+
+    if (mode === "signup") {
+      if (!trimmedRestaurant) {
+        errors.restaurantName = "Enter your restaurant or café name.";
+      }
+    }
 
     if (mode !== "reset-password") {
       if (!trimmedEmail) {
@@ -190,18 +205,33 @@ export default function AuthForm({
       }
     }
 
-    if (mode === "login" || mode === "signup" || mode === "reset-password") {
+    if (mode === "login") {
       if (!password) {
         errors.password = "Enter your password.";
-      } else if (
-        (mode === "signup" || mode === "reset-password") &&
-        password.length < 8
-      ) {
+      }
+    } else if (mode === "signup") {
+      if (!password) {
+        errors.password = "Enter a password.";
+      } else if (!isPasswordValid) {
+        errors.password = "Password must meet all three requirements below.";
+      }
+
+      if (!confirmation) {
+        errors.confirmation = "Please confirm your password.";
+      } else if (password !== confirmation) {
+        errors.confirmation = "Passwords do not match.";
+      }
+
+      if (!agreeToTerms) {
+        errors.consent = "You must agree to the Terms of Service and Privacy Policy to continue.";
+      }
+    } else if (mode === "reset-password") {
+      if (!password) {
+        errors.password = "Enter your password.";
+      } else if (password.length < 8) {
         errors.password = "Password needs at least 8 characters.";
       }
-    }
 
-    if (mode === "reset-password") {
       if (!confirmation) {
         errors.confirmation = "Please confirm your password.";
       } else if (password !== confirmation) {
@@ -240,10 +270,15 @@ export default function AuthForm({
               ? "/api/auth/password-reset"
               : "/api/auth/resend-verification";
 
+      const requestPayload =
+        mode === "signup"
+          ? { email: trimmedEmail, password, restaurantName: trimmedRestaurant }
+          : { email: trimmedEmail, password };
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmedEmail, password }),
+        body: JSON.stringify(requestPayload),
       });
 
       if (!response.ok) {
@@ -504,6 +539,33 @@ export default function AuthForm({
       ) : (
         /* Owner Form */
         <form onSubmit={submitOwner} id="mo-form" noValidate>
+          {mode === "signup" && (
+            <div>
+              <label className="auth-label" htmlFor="auth-restaurant-name">
+                Restaurant or café name
+              </label>
+              <input
+                autoComplete="organization"
+                id="auth-restaurant-name"
+                maxLength={100}
+                onChange={(event) => {
+                  setRestaurantName(event.target.value);
+                  setFieldErrors((prev) => ({ ...prev, restaurantName: "" }));
+                }}
+                required
+                type="text"
+                placeholder="e.g. Juniper &amp; Rye"
+                value={restaurantName}
+                className={`auth-f ${fieldErrors.restaurantName ? "bad" : ""}`}
+              />
+              {fieldErrors.restaurantName && (
+                <div className="auth-er" id="e-rest">
+                  {fieldErrors.restaurantName}
+                </div>
+              )}
+            </div>
+          )}
+
           {mode !== "reset-password" && (
             <div>
               <label className="auth-label" htmlFor="auth-email">
@@ -536,7 +598,7 @@ export default function AuthForm({
             mode === "reset-password") && (
             <div>
               <label className="auth-label" htmlFor="auth-password">
-                {mode === "login" ? "Password" : "New password"}
+                {mode === "login" ? "Password" : "Password"}
               </label>
               <div className="auth-fw">
                 <input
@@ -555,7 +617,7 @@ export default function AuthForm({
                   placeholder={
                     mode === "login"
                       ? "••••••••••••"
-                      : "At least 8 characters"
+                      : "Create a secure password"
                   }
                   value={password}
                   className={`auth-f ${fieldErrors.password ? "bad" : ""}`}
@@ -602,13 +664,44 @@ export default function AuthForm({
                   {fieldErrors.password}
                 </div>
               )}
+
+              {/* Visible Password Requirements on Signup */}
+              {mode === "signup" && (
+                <div
+                  className="auth-rules-box"
+                  style={{
+                    marginTop: "8px",
+                    padding: "10px 12px",
+                    background: "rgba(114, 47, 55, 0.04)",
+                    border: "1px solid var(--tt-border)",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                  aria-live="polite"
+                >
+                  <div style={{ fontWeight: 600, color: "var(--tt-ink)", marginBottom: "4px" }}>
+                    Password rules:
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "2px", color: "var(--tt-ink-muted)" }}>
+                    <li style={{ color: hasMinLength ? "var(--tt-emerald, #10b981)" : "inherit", fontWeight: hasMinLength ? 600 : 400 }}>
+                      {hasMinLength ? "✓" : "○"} At least 8 characters
+                    </li>
+                    <li style={{ color: hasLetter ? "var(--tt-emerald, #10b981)" : "inherit", fontWeight: hasLetter ? 600 : 400 }}>
+                      {hasLetter ? "✓" : "○"} At least one letter
+                    </li>
+                    <li style={{ color: hasNumberOrSymbol ? "var(--tt-emerald, #10b981)" : "inherit", fontWeight: hasNumberOrSymbol ? 600 : 400 }}>
+                      {hasNumberOrSymbol ? "✓" : "○"} At least one number or symbol
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
-          {mode === "reset-password" && (
+          {(mode === "signup" || mode === "reset-password") && (
             <div>
               <label className="auth-label" htmlFor="auth-confirm-password">
-                Confirm new password
+                {mode === "signup" ? "Confirm password" : "Confirm new password"}
               </label>
               <div className="auth-fw">
                 <input
@@ -622,7 +715,7 @@ export default function AuthForm({
                   }}
                   required
                   type={showConfirmation ? "text" : "password"}
-                  placeholder="••••••••••••"
+                  placeholder="Repeat your password"
                   value={confirmation}
                   className={`auth-f ${fieldErrors.confirmation ? "bad" : ""}`}
                 />
@@ -666,6 +759,58 @@ export default function AuthForm({
               </div>
               {fieldErrors.confirmation && (
                 <div className="auth-er">{fieldErrors.confirmation}</div>
+              )}
+            </div>
+          )}
+
+          {/* Required Consent Checkbox on Signup */}
+          {mode === "signup" && (
+            <div style={{ marginTop: "12px", marginBottom: "4px" }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "10px",
+                  fontSize: "12px",
+                  color: "var(--tt-ink)",
+                  cursor: "pointer",
+                  lineHeight: 1.4,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  id="auth-consent"
+                  checked={agreeToTerms}
+                  onChange={(e) => {
+                    setAgreeToTerms(e.target.checked);
+                    setFieldErrors((prev) => ({ ...prev, consent: "" }));
+                  }}
+                  required
+                  style={{
+                    width: "16px",
+                    height: "16px",
+                    marginTop: "2px",
+                    accentColor: "var(--tt-burgundy)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                />
+                <span>
+                  I agree to the{" "}
+                  <Link href="/terms" target="_blank" style={{ color: "var(--tt-burgundy)", textDecoration: "underline", fontWeight: 600 }}>
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" target="_blank" style={{ color: "var(--tt-burgundy)", textDecoration: "underline", fontWeight: 600 }}>
+                    Privacy Policy
+                  </Link>{" "}
+                  (governed by the DPDP Act 2023).
+                </span>
+              </label>
+              {fieldErrors.consent && (
+                <div className="auth-er" style={{ marginTop: "4px" }}>
+                  {fieldErrors.consent}
+                </div>
               )}
             </div>
           )}

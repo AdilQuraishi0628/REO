@@ -400,6 +400,9 @@ export default function GuestReservationModal({
                   onChange={(e) => setPhone(e.target.value)}
                   required
                 />
+                <span style={{ display: "block", fontSize: "11px", color: "var(--tt-ink-muted, #666)", marginTop: "4px" }}>
+                  By providing your number, you consent to receive booking confirmations and service updates from {restaurantName} as outlined in our <a href="/privacy" target="_blank" style={{ color: "inherit", textDecoration: "underline" }}>Privacy Policy</a>.
+                </span>
               </div>
             </div>
 

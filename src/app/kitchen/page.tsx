@@ -8,6 +8,11 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Kitchen Display (KDS) | TableTap Raipur",
   description: "Real-time kitchen order tickets and live table service calls for restaurant staff in Raipur.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
 };
 
 type KitchenPageProps = {

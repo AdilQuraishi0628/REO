@@ -25,11 +25,68 @@ import {
   IconBotanicalSprig,
   IconStar,
   IconVeg,
+  IconNonVeg,
   IconPlates,
-  IconClock,
   IconAlert,
   CategoryIcon,
 } from "@/components/icons";
+
+const GUEST_STRINGS = {
+  en: {
+    searchPlaceholder: "Search coffee, tea, bakery, plates...",
+    vegOnly: "Veg Only",
+    all: "All",
+    callWaiter: "Call Waiter",
+    callingWaiter: "Calling waiter...",
+    requestBill: "Request Bill",
+    requestingBill: "Requesting...",
+    review: "Review",
+    wifi: "Wi-Fi",
+    add: "+ Add",
+    cart: "Cart",
+    viewCart: "View Cart",
+    placeOrder: "Place Order",
+    bestseller: "Bestseller",
+    totalPayable: "Total Payable at Table:",
+    specialCookingInstructions: "Special Cooking Instructions",
+    specialInstructionsPlaceholder: "e.g. Please bring drinks first, extra napkins",
+    mobileNumber: "Mobile Number",
+    mobileNote: "(For Order Status & Loyalty)",
+    dineIn: "🍽️ Dine-in",
+    takeaway: "🛍️ Takeaway",
+    tableNumber: "Table Number",
+    resetFilters: "Reset filters",
+    noDishesFound: "No dishes found",
+    noDishesDesc: "Try clearing your search or filter to see more items.",
+  },
+  hi: {
+    searchPlaceholder: "कॉफ़ी, चाय, नाश्ता, व्यंजन खोजें...",
+    vegOnly: "केवल शाकाहारी",
+    all: "सभी",
+    callWaiter: "वेटर बुलाएं",
+    callingWaiter: "वेटर को सूचित कर रहे हैं...",
+    requestBill: "बिल मांगें",
+    requestingBill: "बिल का अनुरोध कर रहे हैं...",
+    review: "समीक्षा दें",
+    wifi: "वाई-फ़ाई",
+    add: "+ जोड़ें",
+    cart: "ऑर्डर सूची",
+    viewCart: "कार्ट देखें",
+    placeOrder: "ऑर्डर दें",
+    bestseller: "खास पसंद",
+    totalPayable: "टेबल पर कुल देय राशि:",
+    specialCookingInstructions: "विशेष रसोई निर्देश",
+    specialInstructionsPlaceholder: "जैसे: ड्रिंक्स पहले लाएं, अतिरिक्त नैपकिन",
+    mobileNumber: "मोबाइल नंबर",
+    mobileNote: "(ऑर्डर स्थिति एवं लॉयल्टी के लिए)",
+    dineIn: "🍽️ डाइन-इन",
+    takeaway: "🛍️ पार्सल",
+    tableNumber: "टेबल नंबर",
+    resetFilters: "फ़िल्टर हटाएं",
+    noDishesFound: "कोई व्यंजन नहीं मिला",
+    noDishesDesc: "अन्य व्यंजन देखने के लिए सर्च या फ़िल्टर साफ़ करें।",
+  },
+};
 
 type CartLine = {
   item: MenuItem;
@@ -53,8 +110,14 @@ export default function TableGuestExperience({
   tableId,
   tableCode,
   tableLabel,
+  tableToken,
 }: GuestPageData) {
   const hasFixedTable = Boolean(tableId && tableCode);
+  const hasActiveTableSession = Boolean(tableCode || tableId);
+  const [language, setLanguage] = useState<"en" | "hi">("en");
+  const [selectedAllergenFree, setSelectedAllergenFree] = useState<string | null>(null);
+  const t = GUEST_STRINGS[language];
+
   const [orderType, setOrderType] = useState<"dine_in" | "takeaway">("dine_in");
   const [guestTableNumber, setGuestTableNumber] = useState<string>(
     hasFixedTable ? (tableLabel || "Table 1") : ""
@@ -449,6 +512,11 @@ export default function TableGuestExperience({
             item.dietaryTags.some((tag) => tag.toLowerCase().includes("veg") && !tag.toLowerCase().includes("non")),
           );
         }
+        if (selectedAllergenFree) {
+          items = items.filter(
+            (item) => !item.dietaryTags.some((tag) => tag.toLowerCase() === selectedAllergenFree.toLowerCase()),
+          );
+        }
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
           items = items.filter(
@@ -464,7 +532,7 @@ export default function TableGuestExperience({
         if (activeCategory !== "all" && cat.id !== activeCategory) return false;
         return cat.items.length > 0;
       });
-  }, [categories, activeCategory, vegOnly, searchQuery]);
+  }, [categories, activeCategory, vegOnly, selectedAllergenFree, searchQuery]);
 
   const totalFilteredItems = useMemo(
     () => filteredCategories.reduce((sum, cat) => sum + cat.items.length, 0),
@@ -487,6 +555,7 @@ export default function TableGuestExperience({
           tableLabel: effectiveTableLabel,
           orderType: orderType,
           uniqueCode: tableCode ?? "",
+          tableToken: tableToken ?? "",
           phone: orderPhone,
           notes: orderNotes,
           items: cart.map((line) => ({
@@ -715,17 +784,24 @@ export default function TableGuestExperience({
           </div>
 
           <div className="guest-header-actions">
-            {showReservations && (
-              <button
-                aria-label="Reserve a Table"
-                className="guest-header-reserve-btn"
-                onClick={() => setIsReservationOpen(true)}
-                type="button"
-              >
-                <IconClock size={14} />
-                <span>Reserve</span>
-              </button>
-            )}
+            <button
+              aria-label="Toggle Language"
+              className="guest-circle-btn"
+              onClick={() => setLanguage((prev) => (prev === "en" ? "hi" : "en"))}
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+                padding: "0 8px",
+                width: "auto",
+                borderRadius: "16px",
+                border: "1px solid var(--tt-border)",
+                background: language === "hi" ? "var(--tt-burgundy)" : "transparent",
+                color: language === "hi" ? "#ffffff" : "var(--tt-ink)",
+              }}
+              type="button"
+            >
+              {language === "en" ? "हिं" : "EN"}
+            </button>
             <button
               aria-label="Search dishes"
               className={`guest-circle-btn ${isSearchOpen ? "active" : ""}`}
@@ -758,19 +834,9 @@ export default function TableGuestExperience({
         </div>
       </section>
 
-      {/* Quick Table Actions: Connect to WiFi, Call Waiter, Request Bill, Reserve Table */}
-      {(showWifi || showCallWaiter || showRequestBill || showReservations) && (
+      {/* Quick Table Actions: Connect to WiFi, Call Waiter, Request Bill */}
+      {(showWifi || showCallWaiter || showRequestBill) && (
         <section aria-label="Table quick actions" className="table-quick-strip">
-          {showReservations && (
-            <button
-              className="table-action-pill reserve"
-              onClick={() => setIsReservationOpen(true)}
-              type="button"
-            >
-              <IconClock size={14} className="pill-icon-svg" />
-              <span className="pill-text">Reserve</span>
-            </button>
-          )}
 
           {showWifi && (
             <button
@@ -779,7 +845,7 @@ export default function TableGuestExperience({
               type="button"
             >
               <IconWifi size={14} className="pill-icon-svg" />
-              <span className="pill-text">WiFi</span>
+              <span className="pill-text">{t.wifi}</span>
             </button>
           )}
 
@@ -793,10 +859,10 @@ export default function TableGuestExperience({
               <IconBell size={14} className="pill-icon-svg" />
               <span className="pill-text">
                 {isCallingWaiter
-                  ? "Calling..."
+                  ? t.callingWaiter
                   : waiterCooldown > 0
-                  ? `Waiter (${waiterCooldown}s)`
-                  : "Call Waiter"}
+                  ? `${t.callWaiter} (${waiterCooldown}s)`
+                  : t.callWaiter}
               </span>
             </button>
           )}
@@ -811,10 +877,10 @@ export default function TableGuestExperience({
               <IconOrder size={14} className="pill-icon-svg" />
               <span className="pill-text">
                 {isRequestingBill
-                  ? "Requesting..."
+                  ? t.requestingBill
                   : billCooldown > 0
-                  ? `Bill (${billCooldown}s)`
-                  : "Request Bill"}
+                  ? `${t.requestBill} (${billCooldown}s)`
+                  : t.requestBill}
               </span>
             </button>
           )}
@@ -826,7 +892,7 @@ export default function TableGuestExperience({
               type="button"
             >
               <IconStar size={14} className="pill-icon-svg" />
-              <span className="pill-text">Review</span>
+              <span className="pill-text">{t.review}</span>
             </button>
           )}
         </section>
@@ -931,7 +997,7 @@ export default function TableGuestExperience({
       ) : (
         <>
           <section className="guest-controls-bar">
-            {/* Search and Veg toggle */}
+            {/* Search, Veg toggle & Allergen Filters */}
             <div className="guest-search-row">
               <div className="guest-search-input-wrap">
                 <IconSearch className="search-box-icon" size={17} />
@@ -939,7 +1005,7 @@ export default function TableGuestExperience({
                   aria-label="Search dishes"
                   className="guest-search-input"
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search coffee, tea, bakery, plates..."
+                  placeholder={t.searchPlaceholder}
                   type="search"
                   value={searchQuery}
                 />
@@ -963,8 +1029,29 @@ export default function TableGuestExperience({
                 type="button"
               >
                 <IconVeg size={14} />
-                <span>Veg Only</span>
+                <span>{t.vegOnly}</span>
               </button>
+
+              {/* Allergen Filters */}
+              {["Nuts", "Dairy", "Gluten"].map((allergen) => {
+                const isSelected = selectedAllergenFree === allergen;
+                return (
+                  <button
+                    key={allergen}
+                    aria-pressed={isSelected}
+                    className={`veg-filter-pill ${isSelected ? "active" : ""}`}
+                    onClick={() => setSelectedAllergenFree(isSelected ? null : allergen)}
+                    type="button"
+                    style={{
+                      background: isSelected ? "var(--tt-burgundy)" : "transparent",
+                      color: isSelected ? "#ffffff" : "var(--tt-ink)",
+                      borderColor: isSelected ? "var(--tt-burgundy)" : "var(--tt-border)",
+                    }}
+                  >
+                    <span>{allergen === "Nuts" ? "Nut-Free" : `${allergen}-Free`}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Category Squircles Scroller matching Page 1 & 2 */}
@@ -1040,6 +1127,9 @@ export default function TableGuestExperience({
                       );
                       const isNonVeg = item.dietaryTags.some((t) => t.toLowerCase().includes("non-veg"));
                       const isBestseller = item.dietaryTags.some((t) => t.toLowerCase().includes("bestseller"));
+                      const allergenTags = item.dietaryTags.filter((t) =>
+                        ["dairy", "gluten", "nuts", "eggs", "soy"].includes(t.toLowerCase()),
+                      );
                       const staggerClass = `motion-stagger-${Math.min(itemIdx + 1, 8)}`;
 
                       return (
@@ -1089,15 +1179,34 @@ export default function TableGuestExperience({
                             <div className="dish-info-top">
                               <div className="dish-title-row">
                                 <h3 className="dish-name">{item.name}</h3>
-                                {isBestseller && <span className="dish-badge-bestseller">Bestseller</span>}
+                                {isBestseller && <span className="dish-badge-bestseller">{t.bestseller}</span>}
                               </div>
                               {item.description && <p className="dish-desc">{item.description}</p>}
+                              {allergenTags.length > 0 && (
+                                <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px" }}>
+                                  {allergenTags.map((tag) => (
+                                    <span
+                                      key={tag}
+                                      style={{
+                                        fontSize: "10px",
+                                        padding: "1px 5px",
+                                        borderRadius: "4px",
+                                        background: "rgba(114, 47, 55, 0.08)",
+                                        color: "var(--tt-burgundy)",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
                             <div className="dish-card-bottom-row">
                               <div className="dish-diet-price">
                                 {isVeg && <IconVeg size={15} />}
-                                {isNonVeg && <span className="non-veg-badge" />}
+                                {isNonVeg && <IconNonVeg size={15} />}
                                 <span className="dish-price">{formatPrice(item.price)}</span>
                               </div>
 
@@ -1404,6 +1513,9 @@ export default function TableGuestExperience({
                           type="tel"
                           value={orderPhone}
                         />
+                        <span style={{ display: "block", fontSize: "11px", color: "var(--tt-ink-muted)", marginTop: "4px", lineHeight: 1.4 }}>
+                          By entering your phone number, you consent under the DPDP Act 2023 to receive order updates and loyalty rewards from {restaurant.name}. View <a href="/privacy" target="_blank" style={{ textDecoration: "underline", color: "inherit" }}>Privacy Notice</a>.
+                        </span>
                       </label>
                     </div>
 
@@ -1438,40 +1550,61 @@ export default function TableGuestExperience({
                   <p className="wifi-sub-text">Connect to our complimentary guest Wi-Fi</p>
                 </div>
 
-                <div className="wifi-details-card">
-                  <div className="wifi-field">
-                    <span className="wifi-field-label">Wi-Fi Network Name (SSID)</span>
-                    <div className="wifi-field-value-row">
-                      <strong className="wifi-ssid-value">{wifiDisplayName}</strong>
-                    </div>
+                {!hasActiveTableSession ? (
+                  <div
+                    style={{
+                      padding: "20px 16px",
+                      textAlign: "center",
+                      background: "rgba(114, 47, 55, 0.05)",
+                      borderRadius: "12px",
+                      border: "1px dashed var(--tt-burgundy)",
+                      margin: "16px 0",
+                    }}
+                  >
+                    <IconWifi size={28} style={{ color: "var(--tt-burgundy)", marginBottom: "8px" }} />
+                    <h4 style={{ margin: "0 0 6px 0", color: "var(--tt-burgundy)", fontSize: "15px", fontWeight: 700 }}>
+                      Active Table Session Required
+                    </h4>
+                    <p style={{ margin: 0, fontSize: "12px", color: "var(--tt-ink-muted)", lineHeight: 1.5 }}>
+                      Wi-Fi credentials are reserved for seated dine-in guests. Please scan the QR code located on your table to reveal the network password.
+                    </p>
                   </div>
+                ) : (
+                  <div className="wifi-details-card">
+                    <div className="wifi-field">
+                      <span className="wifi-field-label">Wi-Fi Network Name (SSID)</span>
+                      <div className="wifi-field-value-row">
+                        <strong className="wifi-ssid-value">{wifiDisplayName}</strong>
+                      </div>
+                    </div>
 
-                  <div className="wifi-field">
-                    <span className="wifi-field-label">Wi-Fi Password</span>
-                    <div className="wifi-password-box">
-                      <code className="wifi-password-value">
-                        {restaurant.wifiPassword || "No password needed (Open Network)"}
-                      </code>
-                      {restaurant.wifiPassword && (
-                        <button
-                          aria-label="Copy Wi-Fi password"
-                          className={`btn-copy-pwd ${copiedWifi ? "copied" : ""}`}
-                          onClick={() => void handleCopyWifiPassword()}
-                          type="button"
-                        >
-                          {copiedWifi ? (
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                              <Icon name="check" size={13} />
-                              <span>Copied!</span>
-                            </span>
-                          ) : (
-                            "Copy"
-                          )}
-                        </button>
-                      )}
+                    <div className="wifi-field">
+                      <span className="wifi-field-label">Wi-Fi Password</span>
+                      <div className="wifi-password-box">
+                        <code className="wifi-password-value">
+                          {restaurant.wifiPassword || "No password needed (Open Network)"}
+                        </code>
+                        {restaurant.wifiPassword && (
+                          <button
+                            aria-label="Copy Wi-Fi password"
+                            className={`btn-copy-pwd ${copiedWifi ? "copied" : ""}`}
+                            onClick={() => void handleCopyWifiPassword()}
+                            type="button"
+                          >
+                            {copiedWifi ? (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <Icon name="check" size={13} />
+                                <span>Copied!</span>
+                              </span>
+                            ) : (
+                              "Copy"
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 <div className="wifi-instructions-box">
                   <div className="instruction-icon-wrap">
@@ -1786,6 +1919,9 @@ export default function TableGuestExperience({
                         type="tel"
                         value={feedbackPhone}
                       />
+                      <span style={{ display: "block", fontSize: "11px", color: "var(--tt-ink-muted)", marginTop: "4px", lineHeight: 1.4 }}>
+                        Optional: Phone number is used solely to follow up on your dining experience under the DPDP Act 2023. View <a href="/privacy" target="_blank" style={{ textDecoration: "underline", color: "inherit" }}>Privacy Notice</a>.
+                      </span>
                     </label>
                   </div>
 

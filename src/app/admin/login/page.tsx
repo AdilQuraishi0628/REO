@@ -5,6 +5,11 @@ import AuthShell from "@/components/auth-shell";
 export const metadata: Metadata = {
   title: "Sign In · Restaurant Owner & Kitchen Staff | TableTap",
   description: "Sign in to manage your digital restaurant or access the live Kitchen Display System in Raipur.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
 };
 
 type LoginPageProps = {
@@ -24,7 +29,10 @@ export default async function AdminLoginPage({ searchParams }: LoginPageProps) {
   } else if (error === "verification") {
     initialNotice = "We couldn't verify that email link. Request another verification email or try signing in.";
   } else if (error === "auth") {
-    initialNotice = "Sign in to continue to your restaurant workspace.";
+    initialNotice =
+      tab === "kitchen"
+        ? "Please sign in with your Staff PIN or Owner account to view the Kitchen Display System."
+        : "Please sign in to continue to your restaurant dashboard.";
   }
 
   const initialTab = tab === "kitchen" ? "kitchen" : "owner";

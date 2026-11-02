@@ -44,6 +44,24 @@ const FLOOR_TABLES: FloorTable[] = [
     seats: 4,
   },
   {
+    id: "t12",
+    tableNumber: "Table 12",
+    code: "demo-juniper-t12",
+    restaurantSlug: "juniper-and-rye",
+    restaurantName: "Juniper & Rye",
+    zone: "Bookshelf Corner",
+    seats: 2,
+  },
+  {
+    id: "t3",
+    tableNumber: "Table 3",
+    code: "demo-chai-t3",
+    restaurantSlug: "chai-and-chutney",
+    restaurantName: "Chai & Chutney",
+    zone: "Street Frontage",
+    seats: 4,
+  },
+  {
     id: "t5",
     tableNumber: "Table 5",
     code: "demo-chai-t5",
@@ -58,7 +76,7 @@ const FLOOR_TABLES: FloorTable[] = [
     code: "demo-chai-t7",
     restaurantSlug: "chai-and-chutney",
     restaurantName: "Chai & Chutney",
-    zone: "Courtyard",
+    zone: "Courtyard Garden",
     seats: 6,
   },
   {
@@ -69,24 +87,6 @@ const FLOOR_TABLES: FloorTable[] = [
     restaurantName: "The Royal Feast",
     zone: "Family Alcove",
     seats: 6,
-  },
-  {
-    id: "t12",
-    tableNumber: "Table 12",
-    code: "table12",
-    restaurantSlug: "juniper-and-rye",
-    restaurantName: "Juniper & Rye",
-    zone: "Bookshelf Corner",
-    seats: 2,
-  },
-  {
-    id: "ak1",
-    tableNumber: "Table 1",
-    code: "ak-coffee-t1",
-    restaurantSlug: "ak-s-coffee-0298f6d52949",
-    restaurantName: "AK's Coffee",
-    zone: "Espresso Bar",
-    seats: 2,
   },
 ];
 

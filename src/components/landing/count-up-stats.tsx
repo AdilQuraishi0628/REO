@@ -43,12 +43,29 @@ const STATS: StatConfig[] = [
 
 export function CountUpStats() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // Server-render final target values so SSR and no-JS show the correct final numbers
+  const [counts, setCounts] = useState<number[]>(STATS.map((s) => s.target));
+  const [isClient, setIsClient] = useState(false);
   const [triggered, setTriggered] = useState(false);
-  const [counts, setCounts] = useState<number[]>([0, 0, 0, 0]);
 
   useEffect(() => {
+    setIsClient(true);
+    // If user prefers reduced motion, do not reset or animate; keep final target values
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    // Reset to 0 on client for progressive count-up enhancement
+    setCounts([0, 0, 0, 0]);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
     const el = containerRef.current;
     if (!el) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -61,13 +78,12 @@ export function CountUpStats() {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [triggered]);
+  }, [isClient, triggered]);
 
   useEffect(() => {
     if (!triggered) return;
 
-    // Check reduced motion
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setCounts(STATS.map((s) => s.target));
       return;
     }

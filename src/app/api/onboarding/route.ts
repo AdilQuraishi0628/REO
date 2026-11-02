@@ -172,7 +172,7 @@ export async function POST(request: Request) {
 
     if (error && /staff_pin_hash/i.test(error.message)) {
       delete insertPayload.staff_pin_hash;
-      insertPayload.kitchen_pin = initialStaffPin;
+      insertPayload.kitchen_pin = initialStaffPinHash;
       const retry = await service
         .from("restaurants")
         .insert(insertPayload as never)

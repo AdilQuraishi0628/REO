@@ -48,10 +48,10 @@ const STEPS: StepData[] = [
   {
     number: "05",
     title: "Collect Stamp & Review",
-    tagline: "Automated Loyalty & Growth",
-    description: "Digital loyalty stamp added by phone number. Happy guests are guided directly to your Google Review page in 1 tap.",
+    tagline: "Automated Loyalty & Reviews",
+    description: "Digital loyalty stamp added by phone number. Guests can post a Google Review in 1 tap or share direct feedback with management.",
     icon: "star",
-    badge: "5-Star Rating Booster",
+    badge: "Direct Google Reviews",
   },
 ];
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { clearSupabaseAuthCookies, createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,9 +30,15 @@ export async function POST(request: Request) {
   }
   const email = "email" in input && typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
   const password = "password" in input && typeof input.password === "string" ? input.password : "";
-  if (!emailPattern.test(email) || email.length > 254 || password.length < 8 || password.length > 256) {
+  const restaurantName = "restaurantName" in input && typeof input.restaurantName === "string" ? input.restaurantName.trim() : "";
+
+  const hasMinLength = password.length >= 8 && password.length <= 256;
+  const hasLetter = /[a-zA-Z]/.test(password);
+  const hasNumberOrSymbol = /[\d\W_]/.test(password);
+
+  if (!emailPattern.test(email) || email.length > 254 || !hasMinLength || !hasLetter || !hasNumberOrSymbol) {
     return NextResponse.json(
-      { error: "Enter a valid email and a password with at least 8 characters." },
+      { error: "Enter a valid email and a password meeting all security rules (8+ chars, at least 1 letter and 1 number/symbol)." },
       { status: 400 },
     );
   }
@@ -46,11 +52,14 @@ export async function POST(request: Request) {
         auth: { persistSession: false, autoRefreshToken: false },
       });
 
-      // Directly create pre-confirmed user so they can immediately launch without email delays
-      const { data: adminData, error: adminError } = await adminClient.auth.admin.createUser({
+      // Directly create pre-confirmed user with restaurant metadata
+      const { error: adminError } = await adminClient.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
+        user_metadata: {
+          restaurant_name: restaurantName || undefined,
+        },
       });
 
       if (adminError) {

@@ -25,23 +25,28 @@ export function LandingFooter() {
               </span>
             </div>
             <p className="tt-footer-brand-text">
-              Tactile table QR menus, live kitchen displays, and automated guest loyalty
-              crafted for independent café owners in Raipur, Chhattisgarh.
+              Table QR menus, live kitchen displays, and guest loyalty designed
+              for independent café and bistro owners in Raipur, Chhattisgarh.
             </p>
+            <div style={{ marginTop: "12px", fontSize: "12px", color: "var(--tt-ink-muted)" }}>
+              <span style={{ display: "block" }}>Support: <a href="mailto:{SUPPORT_EMAIL}" style={{ color: "var(--tt-burgundy)", textDecoration: "underline" }}>{`{SUPPORT_EMAIL}`}</a></span>
+              <span style={{ display: "block", marginTop: "4px" }}>WhatsApp: <a href="https://wa.me/{WHATSAPP_NUMBER}" style={{ color: "var(--tt-burgundy)", textDecoration: "underline" }}>{`{WHATSAPP_NUMBER}`}</a></span>
+              <span style={{ display: "block", marginTop: "4px", color: "var(--tt-brass)", fontWeight: 600 }}>Free during beta · Plans from {`{PRICING_MONTHLY}`}/mo</span>
+            </div>
           </div>
 
           {/* Product & Demo Links */}
           <div className="tt-footer-col">
-            <h4>Workspace Links</h4>
+            <h4>Workspace &amp; Demos</h4>
             <ul className="tt-footer-links">
               <li>
-                <Link href="/admin">Owner Dashboard</Link>
+                <Link href="/demo/admin">Owner Dashboard (Demo)</Link>
+              </li>
+              <li>
+                <Link href="/demo/kitchen">Kitchen KDS (Demo)</Link>
               </li>
               <li>
                 <Link href="/admin/login">Owner Login</Link>
-              </li>
-              <li>
-                <Link href="/kitchen">Kitchen Display (KDS)</Link>
               </li>
               <li>
                 <Link href="/admin/signup">Create Workspace</Link>
@@ -60,10 +65,10 @@ export function LandingFooter() {
                 <Link href="/terms">Terms of Service</Link>
               </li>
               <li>
-                <a href="#floorplan">Interactive Floorplan</a>
+                <a href="mailto:{SUPPORT_EMAIL}">Contact Support</a>
               </li>
               <li>
-                <a href="#how-it-works">Guest Experience</a>
+                <a href="#floorplan">Interactive Floorplan</a>
               </li>
             </ul>
           </div>
@@ -76,7 +81,7 @@ export function LandingFooter() {
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--tt-brass)" }} />
-            High-contrast WCAG AA · Hardware accelerated
+            Free during beta · SaaS plans starting at {`{PRICING_MONTHLY}`}/mo
           </span>
         </div>
       </div>

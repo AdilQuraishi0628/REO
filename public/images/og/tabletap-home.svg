@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="vbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDFBF7" />
+      <stop offset="100%" stop-color="#EFE8DD" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#vbg)" />
+  <circle cx="950" cy="315" r="240" fill="#722F37" opacity="0.08" />
+  <circle cx="950" cy="315" r="160" fill="#722F37" opacity="0.12" />
+  <text x="100" y="240" font-size="20" font-weight="700" letter-spacing="4" text-transform="uppercase" font-family="system-ui, sans-serif" fill="#722F37">TableTap Digital Dining · Raipur</text>
+  <text x="100" y="320" font-size="54" font-weight="700" font-family="Georgia, serif" fill="#2A1A1D">TableTap</text>
+  <text x="100" y="375" font-size="26" font-family="system-ui, sans-serif" fill="#665555">QR Table Ordering SaaS for Independent Cafés in Raipur, Raipur, Chhattisgarh</text>
+  <rect x="100" y="430" width="220" height="50" rx="25" fill="#722F37" />
+  <text x="210" y="462" text-anchor="middle" font-size="16" font-weight="700" font-family="system-ui, sans-serif" fill="#FFFFFF">Scan QR to Order</text>
+</svg>

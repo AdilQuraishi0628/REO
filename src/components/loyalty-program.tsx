@@ -196,8 +196,7 @@ export default function LoyaltyProgram({
               />
             </label>
             <p className="loyalty-privacy">
-              We use your phone number to identify your card. Enter a 10-digit
-              Indian mobile number, with or without +91.
+              By providing your mobile number, you consent to receive digital loyalty stamps, reward alerts, and dining updates from {restaurantName} via SMS/WhatsApp under our <a href="/privacy" target="_blank" style={{ color: "inherit", textDecoration: "underline" }}>Privacy Policy</a>. You may withdraw consent at any time.
             </p>
             {error && <p aria-live="assertive" className="form-error">{error}</p>}
             <button

@@ -7,6 +7,7 @@ import { addDemoOrder, demoOrdersStore } from "@/lib/orders-store";
 import { demoRestaurants } from "@/lib/restaurant-data";
 import { broadcastToKitchen } from "@/lib/realtime-broadcast";
 import { generateOrderCode } from "@/lib/order-code";
+import { verifyTableToken } from "@/lib/table-token";
 
 
 const uuidPattern =
@@ -22,7 +23,10 @@ type OrderItemInput = {
 function optionalText(value: unknown, maxLength: number): string | null | undefined {
   if (value === undefined || value === null) return null;
   if (typeof value !== "string") return undefined;
-  const text = value.trim();
+  const text = value
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>]/g, "")
+    .trim();
   return text.length <= maxLength ? text || null : undefined;
 }
 
@@ -54,6 +58,7 @@ export async function POST(request: Request) {
   const restaurantId = typeof input.restaurantId === "string" ? input.restaurantId : "";
   const tableId = typeof input.tableId === "string" ? input.tableId : "";
   const uniqueCode = typeof input.uniqueCode === "string" ? input.uniqueCode : "";
+  const tableToken = typeof input.tableToken === "string" ? input.tableToken.trim() : "";
   const rawOrderType = typeof input.orderType === "string" ? input.orderType.trim().toLowerCase() : "";
   const orderType: "dine_in" | "takeaway" = rawOrderType === "takeaway" ? "takeaway" : "dine_in";
   const rawTableLabel = typeof input.tableLabel === "string" ? input.tableLabel.trim() : "";
@@ -70,7 +75,28 @@ export async function POST(request: Request) {
     !supabaseUrl ||
     !serviceRoleKey ||
     restaurantId.startsWith("00000000-0000-4000-8000-") ||
-    uniqueCode.startsWith("demo-");
+    uniqueCode.startsWith("demo-") ||
+    uniqueCode.startsWith("table");
+
+  // Security: Check whether orders are being placed remotely without a valid table QR token
+  if (!isDemo && uniqueCode && !verifyTableToken(uniqueCode, tableToken)) {
+    return NextResponse.json(
+      { error: "Invalid or expired table QR session. Please scan your dining table QR stand to order." },
+      { status: 403 },
+    );
+  }
+
+  // Security: Per-table rate limiting (max 8 orders per 10 minutes per table)
+  if (uniqueCode || tableId) {
+    const tableRateKey = `table-order:${uniqueCode || tableId}`;
+    const tableRate = await consumeRateLimit(request, tableRateKey, 8, 600);
+    if (tableRate === "limited") {
+      return NextResponse.json(
+        { error: "Multiple orders were recently placed for this table. Please wait a moment before adding more items." },
+        { status: 429 },
+      );
+    }
+  }
 
   const isRestIdValid = isDemo ? Boolean(restaurantId) : uuidPattern.test(restaurantId);
   const isTableIdValid = !tableId || (isDemo ? true : uuidPattern.test(tableId));
@@ -95,6 +121,22 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     );
+  }
+
+  // Security: Cap on open orders per table (max 5 pending/preparing orders per table)
+  if (isDemo) {
+    const activeDemoOrders = demoOrdersStore.filter(
+      (o) =>
+        o.restaurant_id === (restaurantId || "00000000-0000-4000-8000-000000000001") &&
+        (o.table_id === tableId || (tableLabel && o.table_number === tableLabel)) &&
+        (o.status === "pending" || o.status === "preparing"),
+    );
+    if (activeDemoOrders.length >= 5) {
+      return NextResponse.json(
+        { error: "This table already has active orders being prepared by the kitchen. Please wait for them to be served." },
+        { status: 429 },
+      );
+    }
   }
 
   const items: OrderItemInput[] = [];

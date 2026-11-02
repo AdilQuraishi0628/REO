@@ -768,31 +768,37 @@ insert into public.restaurants (
   '00000000-0000-4000-8000-000000000001',
   'juniper-and-rye',
   'Juniper & Rye',
-  'A little slower. A lot more delicious.',
-  'Season-led California cooking, natural wine, and the kind of evening you wish would last a little longer.',
-  '4124 Piedmont Avenue',
-  'Oakland, CA 94611',
-  '(510) 555-0142',
-  'Open today · 11:30 am – 10 pm',
-  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1800&q=88',
+  'European Cafe & Specialty Coffee',
+  'Artisan sourdough, wood-fired plates, and specialty coffee in the heart of Civil Lines.',
+  'Civil Lines, Near Raj Bhavan',
+  'Raipur, Chhattisgarh',
+  '+91 98271 23456',
+  'Open daily · 8:30 am – 11:00 pm',
+  '/images/venues/juniper-and-rye.svg',
   'J&R',
-  'Juniper Guest',
+  'Juniper_Guest_WiFi',
   'gatheraround',
-  'https://www.google.com/maps/search/?api=1&query=Juniper%20%26%20Rye%20Oakland%20CA',
+  'https://maps.google.com/?q=Juniper+Rye+Civil+Lines+Raipur',
   true
 ) on conflict (slug) do nothing;
 
 update public.restaurants
-set wifi_ssid = 'Juniper Guest',
+set address = 'Civil Lines, Near Raj Bhavan',
+    city = 'Raipur, Chhattisgarh',
+    phone = '+91 98271 23456',
+    hours = 'Open daily · 8:30 am – 11:00 pm',
+    description = 'Artisan sourdough, wood-fired plates, and specialty coffee in the heart of Civil Lines.',
+    tagline = 'European Cafe & Specialty Coffee',
+    hero_image = '/images/venues/juniper-and-rye.svg',
+    wifi_ssid = 'Juniper_Guest_WiFi',
     wifi_password = 'gatheraround',
-    google_review_url = 'https://www.google.com/maps/search/?api=1&query=Juniper%20%26%20Rye%20Oakland%20CA'
-where slug = 'juniper-and-rye'
-  and wifi_ssid = '';
+    google_review_url = 'https://maps.google.com/?q=Juniper+Rye+Civil+Lines+Raipur'
+where slug = 'juniper-and-rye';
 
 insert into public.menu_categories (id, restaurant_id, name, sort_order) values
-  ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000001', 'To start', 1),
-  ('00000000-0000-4000-8000-000000000012', '00000000-0000-4000-8000-000000000001', 'The main event', 2),
-  ('00000000-0000-4000-8000-000000000013', '00000000-0000-4000-8000-000000000001', 'Something sweet', 3)
+  ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000001', 'Coffee & Beverages', 1),
+  ('00000000-0000-4000-8000-000000000012', '00000000-0000-4000-8000-000000000001', 'Artisan Bakery & Pastries', 2),
+  ('00000000-0000-4000-8000-000000000013', '00000000-0000-4000-8000-000000000001', 'Breakfast & Savory Plates', 3)
 on conflict (restaurant_id, name) do nothing;
 
 insert into public.menu_items (
@@ -810,14 +816,16 @@ select
   true,
   item.sort_order
 from (values
-  ('To start', 'Heirloom tomatoes', 'Whipped ricotta, basil oil, grilled sourdough', 16.00, 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=82', array['Vegetarian'], 1),
-  ('To start', 'Crispy artichokes', 'Lemon aioli, pecorino, garden herbs', 14.00, 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=82', array['Vegetarian', 'Gluten free'], 2),
-  ('To start', 'Wood-fired carrots', 'Green harissa, toasted pistachio, labneh', 15.00, 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=82', array['Vegetarian'], 3),
-  ('The main event', 'Ricotta gnocchi', 'Wild mushrooms, sage brown butter, hazelnut', 28.00, 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=900&q=82', array['Vegetarian'], 1),
-  ('The main event', 'Roasted king salmon', 'Spring peas, crispy potatoes, dill crème fraîche', 34.00, 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=82', array['Gluten free'], 2),
-  ('The main event', 'Steak frites', 'Hanger steak, shoestring fries, green peppercorn', 38.00, 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=900&q=82', array['Gluten free'], 3),
-  ('Something sweet', 'Olive oil cake', 'Macerated strawberries, vanilla cream', 12.00, 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=900&q=82', array['Vegetarian'], 1),
-  ('Something sweet', 'Dark chocolate tart', 'Flaky sea salt, crème fraîche', 13.00, 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=82', array['Vegetarian'], 2)
+  ('Coffee & Beverages', 'Flat White', 'Double shot Chikmagalur espresso with silky steamed microfoam in a classic ceramic cup', 190.00, '/images/dishes/flat-white.svg', array['Veg', 'Dairy', 'Bestseller'], 1),
+  ('Coffee & Beverages', 'Iced Vanilla Latte', 'Double shot espresso, cold milk, and Madagascar vanilla bean syrup over hand-cut ice', 190.00, '/images/dishes/iced-vanilla-latte.svg', array['Veg', 'Dairy'], 2),
+  ('Coffee & Beverages', 'Classic Cold Brew', '16-hour slow steeped single-origin roast served chilled with orange peel essence', 189.00, '/images/dishes/classic-cold-brew.svg', array['Veg'], 3),
+  ('Artisan Bakery & Pastries', 'Almond Butter Croissant', 'Flaky twice-baked French butter croissant filled with velvety almond frangipane and toasted flakes', 180.00, '/images/dishes/almond-croissant.svg', array['Veg', 'Gluten', 'Nuts', 'Dairy', 'Bestseller'], 1),
+  ('Artisan Bakery & Pastries', 'San Sebastian Cheesecake', 'Burnt basque style creamy cheesecake with caramelized exterior and melted center', 249.00, '/images/dishes/basque-cheesecake.svg', array['Veg', 'Dairy', 'Gluten'], 2),
+  ('Artisan Bakery & Pastries', 'Dark Chocolate Tart', '70% single origin cocoa ganache with flaky Maldon sea salt and vanilla bean cream', 199.00, '/images/dishes/chocolate-tart.svg', array['Veg', 'Dairy', 'Gluten'], 3),
+  ('Breakfast & Savory Plates', 'Sourdough Tartine', 'House-baked artisan sourdough, smashed Haas avocado, blistered cherry tomatoes, feta and microgreens', 240.00, '/images/dishes/sourdough-tartine.svg', array['Veg', 'Gluten', 'Dairy'], 1),
+  ('Breakfast & Savory Plates', 'Truffle Parmesan Fries', 'Hand-cut potato fries tossed in white truffle oil, grated aged parmesan, and roasted garlic dip', 220.00, '/images/dishes/truffle-fries.svg', array['Veg', 'Dairy', 'Bestseller'], 2),
+  ('Breakfast & Savory Plates', 'Wild Mushroom Gnocchi', 'Pan-seared potato gnocchi, roasted forest mushrooms, sage brown butter and toasted hazelnuts', 349.00, '/images/dishes/mushroom-gnocchi.svg', array['Veg', 'Gluten', 'Dairy', 'Nuts', 'Chef''s Special'], 3),
+  ('Breakfast & Savory Plates', 'Classic Burrata & Pesto Pizza', 'Wood-fired fermented crust, San Marzano tomato sauce, fresh burrata sphere, and basil pesto swirl', 449.00, '/images/dishes/burrata-pizza.svg', array['Veg', 'Gluten', 'Dairy', 'Bestseller'], 4)
 ) as item(category_name, name, description, price, image_url, dietary_tags, sort_order)
 join public.menu_categories as category
   on category.restaurant_id = '00000000-0000-4000-8000-000000000001'
@@ -828,3 +836,4 @@ where not exists (
     and existing.category_id = category.id
     and existing.name = item.name
 );
+

@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import TableGuestExperience from "@/components/table-guest-experience";
 import { getTableGuestPageData } from "@/lib/restaurant-data";
 
+import { generateTableToken } from "@/lib/table-token";
+
 type TableGuestPageProps = {
   params: Promise<{ code: string }>;
+  searchParams?: Promise<{ token?: string }>;
 };
 
 export async function generateMetadata({ params }: TableGuestPageProps): Promise<Metadata> {
@@ -29,11 +32,15 @@ export async function generateMetadata({ params }: TableGuestPageProps): Promise
   };
 }
 
-export default async function TableGuestPage({ params }: TableGuestPageProps) {
+export default async function TableGuestPage({ params, searchParams }: TableGuestPageProps) {
   const { code } = await params;
   if (!/^[A-Za-z0-9_-]{3,64}$/.test(code)) notFound();
 
   const data = await getTableGuestPageData(code);
   if (!data) notFound();
-  return <TableGuestExperience {...data} />;
+
+  const sp = searchParams ? await searchParams : {};
+  const tableToken = sp.token || generateTableToken(code);
+
+  return <TableGuestExperience {...data} tableToken={tableToken} />;
 }

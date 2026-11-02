@@ -78,7 +78,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   // Graceful fallback if staff_pin_hash column is pending migration
   if (error && /staff_pin_hash/i.test(error.message)) {
     const fallbackUpdate: Record<string, unknown> = {
-      kitchen_pin: targetPin,
+      kitchen_pin: hashedPin,
     };
     const retry = await context.serviceClient
       .from("restaurants")

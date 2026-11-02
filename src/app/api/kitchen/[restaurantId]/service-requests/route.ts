@@ -60,8 +60,8 @@ async function authorize(restaurantId: string) {
   const isExplicitDemo =
     restaurantId.startsWith("00000000-0000-4000-8000-") ||
     restaurantId.startsWith("demo-");
-  if (!supabaseUrl || !serviceRoleKey) {
-    if (isExplicitDemo) return { isDemo: true };
+  if (isExplicitDemo || !supabaseUrl || !serviceRoleKey) {
+    return { isDemo: true };
   }
 
   return {

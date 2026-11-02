@@ -21,7 +21,7 @@ export function HeroSection() {
           </div>
 
           {/* Masked Split-Text Reveal Headline */}
-          <h1 className="tt-hero-headline" aria-label="Digital table ordering with craft and calm.">
+          <h1 className="tt-hero-headline" aria-label="Digital table ordering designed for clarity.">
             <span className="tt-split-line">
               <span className="tt-split-word" style={{ animationDelay: "0.1s" }}>
                 Digital table
@@ -32,7 +32,7 @@ export function HeroSection() {
             </span>
             <span className="tt-split-line">
               <span className="tt-split-word" style={{ animationDelay: "0.26s" }}>
-                crafted with
+                designed for
               </span>{" "}
               <span
                 className="tt-split-word accent-italic"
@@ -45,8 +45,8 @@ export function HeroSection() {
 
           {/* Subtitle */}
           <p className="tt-hero-subtext">
-            Give your guests a quiet, tactile ordering experience from their own table.
-            No noisy app installs, no clunky sign-ups—just direct kitchen tickets,
+            Give your guests a fast, elegant ordering experience from their own table.
+            No app installs, no mandatory sign-ups—just direct kitchen tickets,
             repeat-visit loyalty, and genuine Google reviews.
           </p>
 
@@ -57,7 +57,7 @@ export function HeroSection() {
               <Icon name="arrow-right" size={15} />
             </MagneticButton>
 
-            <MagneticButton href="/admin" variant="secondary" dataCursor="Admin">
+            <MagneticButton href="/demo/admin" variant="secondary" dataCursor="Admin">
               <span>Open Owner Dashboard</span>
             </MagneticButton>
           </div>
