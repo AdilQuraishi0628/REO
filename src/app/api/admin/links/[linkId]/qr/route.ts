@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Guest link not found." }, { status: 404 });
   }
 
-  const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL;
+  const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL || "https://reo-tau.vercel.app";
   const origin = configuredOrigin
     ? new URL(configuredOrigin).origin
     : new URL(request.url).origin;
@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     width: 720,
     margin: 2,
     errorCorrectionLevel: "H",
-    color: { dark: "#2A1A1D", light: "#ffffff" },
+    color: { dark: "#2A1A1D", light: "#F7F1E9" },
   });
 
   return new Response(new Uint8Array(qr), {

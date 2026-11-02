@@ -56,11 +56,24 @@ export async function POST(request: Request) {
         auth: { persistSession: false, autoRefreshToken: false },
       });
       // Query both staff_pin_hash and legacy kitchen_pin for graceful backward compatibility
-      const { data } = await supabase
+      const initialQuery = await supabase
         .from("restaurants")
         .select("id, name, staff_pin_hash, kitchen_pin")
         .eq("id", restaurantId)
         .maybeSingle();
+
+      let data = initialQuery.data;
+      const error = initialQuery.error;
+
+      if (error && (error.code === "42703" || error.message?.includes("staff_pin_hash"))) {
+        // Migration not yet applied to live DB; fallback to legacy kitchen_pin column
+        const fallback = await supabase
+          .from("restaurants")
+          .select("id, name, kitchen_pin")
+          .eq("id", restaurantId)
+          .maybeSingle();
+        data = fallback.data ? ({ ...fallback.data, staff_pin_hash: null } as unknown as typeof data) : null;
+      }
 
       if (data) {
         const row = data as Record<string, unknown>;

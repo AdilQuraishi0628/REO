@@ -104,6 +104,8 @@ export default function AdminReservationsSection({
     data: reservations,
     setData: setReservations,
     status: connectionStatus,
+    isLoading: isReservationsLoading,
+    error: reservationsError,
     refetch,
   } = useRealtimeTable<AdminReservation>({
     table: "reservations",
@@ -220,6 +222,12 @@ export default function AdminReservationsSection({
         <aside className="admin-res-toast error" role="alert">
           <Icon name="alert-triangle" size={15} />
           <span>{actionError}</span>
+        </aside>
+      )}
+      {reservationsError && (
+        <aside className="admin-res-toast error" role="alert">
+          <Icon name="alert-triangle" size={15} />
+          <span>{reservationsError}</span>
         </aside>
       )}
 
@@ -428,7 +436,11 @@ export default function AdminReservationsSection({
       </div>
 
       {/* Reservations List */}
-      {displayedReservations.length === 0 ? (
+      {isReservationsLoading ? (
+        <div className="admin-res-empty-state">
+          <p className="admin-loading-indicator">Loading reservations…</p>
+        </div>
+      ) : displayedReservations.length === 0 ? (
         <div className="admin-res-empty-state">
           <div className="empty-icon-wrap">
             <IconClock size={36} />
