@@ -156,7 +156,7 @@ test.describe('P2: Demo Data & Product Consistency', () => {
 
   for (const tableCode of tables) {
     test(`Issue 10: Floorplan table link /t/${tableCode} loads successfully (HTTP 200)`, async ({ page }) => {
-      const response = await page.goto(`/t/${tableCode}`);
+      const response = await page.goto(`/t/${tableCode}`, { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
       await expect(page.locator('body')).not.toContainText('This table isn');
     });
@@ -263,7 +263,7 @@ test.describe('P3: Homepage, SEO & Bilingual Support', () => {
   });
 
   test('Issue 18: Hindi/English language toggle switches guest UI strings', async ({ page }) => {
-    await page.goto('/t/demo-juniper-t1');
+    await page.goto('/t/demo-juniper-t1', { waitUntil: 'domcontentloaded' });
     const langBtn = page.locator('button.guest-circle-btn[aria-label="Toggle Language"]');
     await expect(langBtn).toBeVisible();
 

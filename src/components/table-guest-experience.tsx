@@ -58,6 +58,9 @@ const GUEST_STRINGS = {
     resetFilters: "Reset filters",
     noDishesFound: "No dishes found",
     noDishesDesc: "Try clearing your search or filter to see more items.",
+    nutFree: "Nut-Free",
+    dairyFree: "Dairy-Free",
+    glutenFree: "Gluten-Free",
   },
   hi: {
     searchPlaceholder: "कॉफ़ी, चाय, नाश्ता, व्यंजन खोजें...",
@@ -85,6 +88,9 @@ const GUEST_STRINGS = {
     resetFilters: "फ़िल्टर हटाएं",
     noDishesFound: "कोई व्यंजन नहीं मिला",
     noDishesDesc: "अन्य व्यंजन देखने के लिए सर्च या फ़िल्टर साफ़ करें।",
+    nutFree: "नट-मुक्त",
+    dairyFree: "डेयरी-मुक्त",
+    glutenFree: "ग्लूटेन-मुक्त",
   },
 };
 
@@ -1065,7 +1071,7 @@ export default function TableGuestExperience({
                 type="button"
               >
                 <IconVeg size={14} />
-                <span>Veg Only</span>
+                <span>{t.vegOnly}</span>
               </button>
               <button
                 aria-pressed={nutFree}
@@ -1073,7 +1079,7 @@ export default function TableGuestExperience({
                 onClick={() => setNutFree(!nutFree)}
                 type="button"
               >
-                <span>Nut-Free</span>
+                <span>{t.nutFree}</span>
               </button>
               <button
                 aria-pressed={dairyFree}
@@ -1081,7 +1087,7 @@ export default function TableGuestExperience({
                 onClick={() => setDairyFree(!dairyFree)}
                 type="button"
               >
-                <span>Dairy-Free</span>
+                <span>{t.dairyFree}</span>
               </button>
               <button
                 aria-pressed={glutenFree}
@@ -1089,7 +1095,7 @@ export default function TableGuestExperience({
                 onClick={() => setGlutenFree(!glutenFree)}
                 type="button"
               >
-                <span>Gluten-Free</span>
+                <span>{t.glutenFree}</span>
               </button>
             </div>
 
