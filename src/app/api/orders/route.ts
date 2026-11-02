@@ -414,9 +414,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (err: unknown) {
-    console.error("Unhandled error in POST /api/orders:", err);
+    const errorDetails = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+    console.error("Unhandled error in POST /api/orders:", errorDetails);
     return NextResponse.json(
-      { error: "We couldn't send your order. Please try again or ask staff for assistance." },
+      { error: "We couldn't send your order. Please try again or ask staff for assistance.", debug: errorDetails },
       { status: 500 },
     );
   }
