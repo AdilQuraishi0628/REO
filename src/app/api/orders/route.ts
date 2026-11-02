@@ -266,11 +266,11 @@ export async function POST(request: Request) {
       };
     });
 
-    type RpcCaller = (fn: string, args: Record<string, unknown>) => Promise<{
-      data: Database["public"]["Tables"]["orders"]["Row"][] | null;
-      error: { code: string; message: string } | null;
-    }>;
-    const callRpc = supabase.rpc as unknown as RpcCaller;
+    const callRpc = (fn: string, args: Record<string, unknown>) =>
+      supabase.rpc(fn as never, args as never) as unknown as Promise<{
+        data: Database["public"]["Tables"]["orders"]["Row"][] | null;
+        error: { code: string; message: string } | null;
+      }>;
 
     // Call place_guest_order RPC
     let { data, error } = await callRpc("place_guest_order", {
@@ -414,10 +414,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (err: unknown) {
-    const errorDetails = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
-    console.error("Unhandled error in POST /api/orders:", errorDetails);
+    console.error("Unhandled error in POST /api/orders:", err);
     return NextResponse.json(
-      { error: "We couldn't send your order. Please try again or ask staff for assistance.", debug: errorDetails },
+      { error: "We couldn't send your order. Please try again or ask staff for assistance." },
       { status: 500 },
     );
   }
