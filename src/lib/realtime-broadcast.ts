@@ -32,8 +32,14 @@ export async function broadcastToKitchen(
     const channelName = `kitchen-${restaurantId}`;
     const channel = client.channel(channelName);
     await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        try { void client.removeChannel(channel); } catch {}
+        resolve();
+      }, 1500);
+
       channel.subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
+          clearTimeout(timer);
           try {
             await channel.send({
               type: "broadcast",
@@ -43,11 +49,12 @@ export async function broadcastToKitchen(
           } catch (err) {
             console.error(`Failed to send broadcast on ${channelName}:`, err);
           } finally {
-            void client.removeChannel(channel);
+            try { void client.removeChannel(channel); } catch {}
             resolve();
           }
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          void client.removeChannel(channel);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          clearTimeout(timer);
+          try { void client.removeChannel(channel); } catch {}
           resolve();
         }
       });
@@ -73,8 +80,14 @@ export async function broadcastToOrder(
     const channelName = `order:${orderId}`;
     const channel = client.channel(channelName);
     await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        try { void client.removeChannel(channel); } catch {}
+        resolve();
+      }, 1500);
+
       channel.subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
+          clearTimeout(timer);
           try {
             await channel.send({
               type: "broadcast",
@@ -84,11 +97,12 @@ export async function broadcastToOrder(
           } catch (err) {
             console.error(`Failed to send broadcast on ${channelName}:`, err);
           } finally {
-            void client.removeChannel(channel);
+            try { void client.removeChannel(channel); } catch {}
             resolve();
           }
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          void client.removeChannel(channel);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          clearTimeout(timer);
+          try { void client.removeChannel(channel); } catch {}
           resolve();
         }
       });
@@ -114,8 +128,14 @@ export async function broadcastToReservation(
     const channelName = `reservation:${reservationId}`;
     const channel = client.channel(channelName);
     await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        try { void client.removeChannel(channel); } catch {}
+        resolve();
+      }, 1500);
+
       channel.subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
+          clearTimeout(timer);
           try {
             await channel.send({
               type: "broadcast",
@@ -125,11 +145,12 @@ export async function broadcastToReservation(
           } catch (err) {
             console.error(`Failed to send broadcast on ${channelName}:`, err);
           } finally {
-            void client.removeChannel(channel);
+            try { void client.removeChannel(channel); } catch {}
             resolve();
           }
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          void client.removeChannel(channel);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          clearTimeout(timer);
+          try { void client.removeChannel(channel); } catch {}
           resolve();
         }
       });
