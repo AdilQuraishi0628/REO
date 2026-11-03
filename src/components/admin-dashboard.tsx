@@ -2923,9 +2923,23 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
               <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "#3C322C" }}>
                 No tables created yet
               </h3>
-              <p style={{ margin: "0 auto", maxWidth: "480px", fontSize: "14px", color: "#4A3E38", lineHeight: 1.6 }}>
+              <p style={{ margin: "0 auto 16px", maxWidth: "480px", fontSize: "14px", color: "#4A3E38", lineHeight: 1.6 }}>
                 Generate individual table links or a range of QR codes and tap-to-order NFC links above.
               </p>
+              <button
+                className="admin-btn primary"
+                onClick={() => {
+                  const input = document.getElementById("single-table-name-input");
+                  if (input) {
+                    input.focus();
+                    if (!tableNumber) setTableNumber("Table 1");
+                  }
+                }}
+                style={{ margin: "0 auto" }}
+                type="button"
+              >
+                + Add your first table
+              </button>
             </div>
           ) : (
             tables.map((table, tIdx) => {

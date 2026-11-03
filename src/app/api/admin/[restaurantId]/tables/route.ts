@@ -179,36 +179,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     );
   }
 
-  let tables: TableRow[] = data ?? [];
-
-  // If a venue has zero tables in public.tables, check if any guest_links were created
-  // (e.g. from onboarding step 4) and auto-sync them so they appear in Tables & QR.
-  if (tables.length === 0) {
-    try {
-      const { data: links } = await auth.context!.serviceClient
-        .from("guest_links")
-        .select("id, token, table_label, created_at")
-        .eq("restaurant_id", restaurantId);
-
-      if (links && links.length > 0) {
-        const toInsert = links.map((link, idx) => ({
-          restaurant_id: restaurantId,
-          table_number: link.table_label || `Table ${idx + 1}`,
-          unique_code: link.token,
-          is_active: true,
-        }));
-        const { data: synced } = await auth.context!.serviceClient
-          .from("tables")
-          .upsert(toInsert, { onConflict: "restaurant_id,table_number", ignoreDuplicates: true })
-          .select("id, restaurant_id, table_number, unique_code, is_active, created_at");
-        if (synced && synced.length > 0) {
-          tables = synced;
-        }
-      }
-    } catch (syncErr) {
-      console.warn("Could not sync guest_links to tables:", syncErr);
-    }
-  }
+  const tables: TableRow[] = data ?? [];
 
   // A venue with zero tables is normal and returns an empty array with 200 OK
   return NextResponse.json({ tables, siteOrigin });

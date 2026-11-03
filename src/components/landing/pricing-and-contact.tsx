@@ -226,7 +226,7 @@ export function PricingAndContact() {
                 gap: "8px",
                 padding: "12px 20px",
                 borderRadius: "8px",
-                background: "#25D366",
+                background: "#075E54",
                 color: "#ffffff",
                 fontWeight: 700,
                 fontSize: "13px",
