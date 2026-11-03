@@ -241,9 +241,11 @@ async function run() {
     };
   }, restaurantId);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await log(`Created Categories: ${menuData.categories.map((c: any) => c?.name).join(", ")}`);
   await log(`Created Items count: ${menuData.createdItems.length}`);
   await log(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     `Total Tables in DB: ${menuData.tables.length} (${menuData.tables.map((t: any) => t.table_number).join(", ")})`,
   );
 
@@ -397,7 +399,9 @@ async function run() {
     const res = await fetch(`/api/kitchen/${rId}/orders`);
     return { status: res.status, data: await res.json() };
   }, restaurantId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const foundInKitchenApi = ((kitchenOrdersRes.data as any)?.orders || []).some((o: any) => o.id === orderId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await log(`Order verified in Kitchen API: ${foundInKitchenApi} (Total kitchen orders: ${(kitchenOrdersRes.data as any)?.orders?.length})`);
 
   // Advance order status: pending -> preparing -> ready -> served
@@ -512,6 +516,7 @@ async function run() {
     const res = await fetch(`/api/admin/${rId}/feedback`);
     return { status: res.status, data: await res.json() };
   }, restaurantId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const foundFeedbackApi = ((adminFeedbackRes.data as any)?.feedback || []).some((f: any) => f.comment?.includes("Outstanding artisanal roast"));
   await log(`Feedback verified in Admin API: ${foundFeedbackApi}`);
 
@@ -525,6 +530,7 @@ async function run() {
     const res = await fetch(`/api/admin/${rId}/loyalty`);
     return { status: res.status, data: await res.json() };
   }, restaurantId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const foundLoyaltyApi = ((adminLoyaltyRes.data as any)?.members || []).some((m: any) => m.phone?.includes("9876543210"));
   await log(`Loyalty member verified in Admin API: ${foundLoyaltyApi}`);
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import TableGuestExperience from "@/components/table-guest-experience";
 import QrStatePage from "@/components/qr-state-page";
 import { resolveTableGuestData } from "@/lib/restaurant-data";
-import { generateTableToken } from "@/lib/table-token";
+import { generateTableToken, verifyTableToken } from "@/lib/table-token";
 
 type TableGuestPageProps = {
   params: Promise<{ code: string }>;
@@ -63,7 +63,9 @@ export default async function TableGuestPage({ params, searchParams }: TableGues
   }
 
   const sp = searchParams ? await searchParams : {};
-  const tableToken = sp.token || result.tableToken || generateTableToken(code);
+  const tableToken =
+    (sp.token && verifyTableToken(code, sp.token) ? sp.token : null) ||
+    generateTableToken(code);
 
   return <TableGuestExperience {...result.data} tableToken={tableToken} />;
 }

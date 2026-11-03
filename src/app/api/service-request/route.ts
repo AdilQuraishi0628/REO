@@ -1,15 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { consumeRateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit, consumeRateLimitKey } from "@/lib/rate-limit";
 import { addDemoServiceRequest } from "@/lib/service-requests-store";
 import { uuidPattern } from "@/lib/admin-auth";
 import { broadcastToKitchen } from "@/lib/realtime-broadcast";
+import { verifyTableToken } from "@/lib/table-token";
 
 type ServiceRequestBody = {
   restaurantId: string;
   tableId?: string | null;
   tableNumber?: string | null;
   tableLabel?: string | null;
+  uniqueCode?: string | null;
+  tableToken?: string | null;
   type: "call_waiter" | "request_bill";
 };
 
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request format." }, { status: 400 });
   }
 
-  const { restaurantId, tableId, tableNumber, tableLabel, type } = body as ServiceRequestBody;
+  const { restaurantId, tableId, tableNumber, tableLabel, uniqueCode, tableToken, type } = body as ServiceRequestBody;
 
   if (!restaurantId || !uuidPattern.test(restaurantId)) {
     return NextResponse.json({ error: "Invalid restaurant identification." }, { status: 400 });
@@ -45,6 +48,11 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (!tableId || !uniqueCode || !tableToken || !verifyTableToken(uniqueCode, tableToken)) {
+    return NextResponse.json({ error: "Scan an active table QR code to request service." }, { status: 403 });
+  }
+  const tableRate = await consumeRateLimitKey(`table-service-request:${restaurantId}:${tableId}`, 12, 300);
+  if (tableRate !== "allowed") return NextResponse.json({ error: "Please wait a moment before sending another request to staff." }, { status: tableRate === "limited" ? 429 : 503 });
 
   const resolvedTableNumber = (tableNumber || tableLabel || "your table").trim().slice(0, 80);
   const confirmationMessage =
@@ -87,6 +95,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Restaurant not found." }, { status: 404 });
   }
 
+  const { data: table, error: tableError } = await supabase
+    .from("tables")
+    .select("id, table_number")
+    .eq("id", tableId)
+    .eq("restaurant_id", restaurantId)
+    .eq("unique_code", uniqueCode)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (tableError || !table) return NextResponse.json({ error: "Table is not active for this restaurant." }, { status: 403 });
+
   if (type === "call_waiter" && restaurant.enable_call_waiter === false) {
     return NextResponse.json({ error: "Waiter calling is currently disabled by the venue." }, { status: 403 });
   }
@@ -99,8 +117,8 @@ export async function POST(request: Request) {
     .from("service_requests")
     .insert({
       restaurant_id: restaurantId,
-      table_id: tableId && uuidPattern.test(tableId) ? tableId : null,
-      table_number: resolvedTableNumber,
+      table_id: table.id,
+      table_number: table.table_number,
       type,
       status: "pending",
     })
@@ -108,26 +126,8 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError) {
-    console.warn("Could not insert service request in DB, falling back to in-memory store:", insertError.message);
-    const demoReq = addDemoServiceRequest({
-      restaurant_id: restaurantId,
-      table_id: tableId ?? null,
-      table_number: resolvedTableNumber,
-      type,
-      status: "pending",
-    });
-    void broadcastToKitchen(restaurantId, "service_request", {
-      id: demoReq.id,
-      tableNumber: demoReq.table_number,
-      type: demoReq.type,
-      status: "pending",
-      createdAt: demoReq.created_at,
-    });
-    return NextResponse.json({
-      success: true,
-      request: demoReq,
-      message: confirmationMessage,
-    });
+    console.error("Could not insert service request:", insertError.message);
+    return NextResponse.json({ error: "Could not send your request. Please ask a staff member." }, { status: 500 });
   }
 
   void broadcastToKitchen(restaurantId, "service_request", {

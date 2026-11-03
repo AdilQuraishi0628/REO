@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Database } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -23,6 +23,7 @@ export type StaffSession = {
   authenticatedAt: number;
   expiresAt?: number;
 };
+const developmentStaffSessionSecret = randomBytes(32).toString("hex");
 
 export async function getSignedInUser() {
   if (
@@ -73,12 +74,12 @@ export async function getAdminContext(): Promise<AdminContext | null> {
 }
 
 function getStaffSessionSigningSecret(): string {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.SESSION_SECRET ||
-    "tabletap_secure_session_signing_secret_fallback_key"
-  );
+  const secret = process.env.STAFF_SESSION_SIGNING_SECRET;
+  if (!secret || secret.length < 32) {
+    if (process.env.NODE_ENV !== "production") return developmentStaffSessionSecret;
+    throw new Error("STAFF_SESSION_SIGNING_SECRET must be set to at least 32 characters.");
+  }
+  return secret;
 }
 
 export function signStaffSessionPayload(payload: StaffSession): string {
@@ -92,19 +93,10 @@ export function signStaffSessionPayload(payload: StaffSession): string {
 export function verifySignedStaffSessionToken(token: string): StaffSession | null {
   if (!token || typeof token !== "string") return null;
   const parts = token.split(".");
-  if (parts.length !== 2) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(token));
-      if (parsed && typeof parsed.restaurantId === "string" && (parsed.role === "kitchen" || parsed.role === "staff")) {
-        return parsed as StaffSession;
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  }
+  if (parts.length !== 2) return null;
   const [b64, signature] = parts;
-  const secret = getStaffSessionSigningSecret();
+  let secret: string;
+  try { secret = getStaffSessionSigningSecret(); } catch { return null; }
   const expectedSig = createHmac("sha256", secret).update(b64).digest("hex");
   const expectedBuf = Buffer.from(expectedSig);
   const candidateBuf = Buffer.from(signature);
@@ -114,7 +106,7 @@ export function verifySignedStaffSessionToken(token: string): StaffSession | nul
   try {
     const rawJson = Buffer.from(b64, "base64url").toString("utf-8");
     const parsed = JSON.parse(rawJson);
-    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+    if (!parsed.expiresAt || !Number.isFinite(parsed.expiresAt) || Date.now() > parsed.expiresAt || parsed.expiresAt - parsed.authenticatedAt > 12 * 3600 * 1000) {
       return null;
     }
     if (parsed && typeof parsed.restaurantId === "string" && (parsed.role === "kitchen" || parsed.role === "staff")) {

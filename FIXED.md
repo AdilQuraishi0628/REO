@@ -2,6 +2,15 @@
 
 All fixes listed below were developed, committed, deployed to production (`https://reo-tau.vercel.app`), and verified against real newly-created venues using automated Playwright browser tests.
 
+## Security hardening (pending commit)
+
+| ID | Status | Verification |
+| --- | --- | --- |
+| SEC-1 | Signed, expiring kitchen sessions; unsigned JSON fallback removed | `npm run typecheck`, `npm run lint`, `npm run build` |
+| SEC-2/3 | Table HMAC required for orders and service requests; server verifies table/venue binding | `npm run typecheck`, `npm run lint`, `npm run build` |
+| SEC-4/5 | Anonymous table grants revoked in migration; default/plaintext PIN path removed | migration review plus build checks |
+| SEC-6 | Public order lookup now requires a tracking token and returns only ID/status/code | `npm run typecheck`, `npm run lint`, `npm run build` |
+
 ---
 
 ## 1. Summary of Commits & Fixes

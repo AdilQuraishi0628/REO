@@ -2,6 +2,13 @@
 
 This document provides a transparent audit of features that are intentionally external-dependent, require third-party commercial credentials, or are pending production integration.
 
+## Security follow-up
+
+- The migration `20261103000000_security_hardening.sql` has not been applied to Supabase. It must be reviewed and applied before deployment.
+- Live end-to-end security tests were not run: this workspace does not have a disposable Supabase/Vercel deployment configured for them.
+- SEC-2 idempotency index is supplied in the migration, but the order RPC must be upgraded to accept and enforce a client idempotency key before that guarantee can be claimed.
+- CSP tightening and the full SECURITY DEFINER guest resolver remain open.
+
 ---
 
 ## 1. External Third-Party Integrations (Awaiting Production Accounts)

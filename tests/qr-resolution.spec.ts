@@ -132,6 +132,7 @@ test.describe('QR & Table URL Canonical Resolution & Status Handling', () => {
     }).select('id').single();
     expect(venueErr).toBeNull();
     expect(venue).not.toBeNull();
+    if (!venue) throw new Error("Test venue was not created");
 
     // 2. Create table for venue
     const { data: table, error: tableErr } = await supabase.from('tables').insert({
@@ -142,6 +143,7 @@ test.describe('QR & Table URL Canonical Resolution & Status Handling', () => {
     }).select('id, unique_code').single();
     expect(tableErr).toBeNull();
     expect(table).not.toBeNull();
+    if (!table) throw new Error("Test table was not created");
 
     try {
       // 3. Fetch QR URL against live build

@@ -135,7 +135,7 @@ export async function POST(request: Request) {
   }
 
   // If no PIN has been set for this restaurant, block staff login
-  const hasConfiguredPin = Boolean(matchedRestaurant.staff_pin_hash || matchedRestaurant.kitchen_pin);
+  const hasConfiguredPin = Boolean(matchedRestaurant.staff_pin_hash);
   if (!hasConfiguredPin) {
     return NextResponse.json(
       { error: "Ask the owner to set a staff PIN in Admin." },
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
   const isValid = await verifyStaffPin(
     pin,
     matchedRestaurant.staff_pin_hash,
-    matchedRestaurant.kitchen_pin,
+    null,
   );
 
   if (!isValid) {

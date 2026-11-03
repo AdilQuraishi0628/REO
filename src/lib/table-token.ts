@@ -1,10 +1,16 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-const SECRET =
-  process.env.TABLE_SECRET_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.JWT_SECRET ||
-  "tabletap-table-session-secret-key-raipur-2026";
+// Development-only process-local key avoids ever shipping a predictable fallback.
+const developmentSecret = randomBytes(32).toString("hex");
+
+function getSecret(): string {
+  const secret = process.env.TABLE_TOKEN_SIGNING_SECRET;
+  if (!secret || secret.length < 32) {
+    if (process.env.NODE_ENV !== "production") return developmentSecret;
+    throw new Error("TABLE_TOKEN_SIGNING_SECRET must be set to at least 32 characters.");
+  }
+  return secret;
+}
 
 /**
  * Creates a cryptographically signed token for a dining table QR code.
@@ -13,30 +19,23 @@ const SECRET =
 export function generateTableToken(tableCode: string): string {
   const ts = Math.floor(Date.now() / 1000).toString(16);
   const payload = `${tableCode.trim().toLowerCase()}:${ts}`;
-  const sig = createHmac("sha256", SECRET).update(payload).digest("hex").slice(0, 32);
+  const sig = createHmac("sha256", getSecret()).update(payload).digest("hex").slice(0, 32);
   return `${ts}.${sig}`;
 }
 
 /**
  * Verifies a table token for a given table code.
- * Demo table codes (starting with "demo-" or "table") always pass verification
- * to keep public test links working.
+ * Tokens are bound to a table code and never accept the code itself as a credential.
  */
 export function verifyTableToken(tableCode: string, token?: string | null): boolean {
   const cleanCode = (tableCode || "").trim().toLowerCase();
   if (!cleanCode) return false;
 
-  // Keep demo URLs working smoothly without requiring active signed tokens
-  if (cleanCode.startsWith("demo-") || cleanCode.startsWith("table")) {
+  if (process.env.TABLE_TOKEN_DEMO_BYPASS === "true" && process.env.NODE_ENV !== "production") {
     return true;
   }
 
   if (!token || typeof token !== "string") return false;
-
-  // Direct table unique code session (from physical QR stand URL)
-  if (token.trim() === cleanCode) {
-    return true;
-  }
 
   const parts = token.trim().split(".");
   if (parts.length !== 2) return false;
@@ -51,7 +50,8 @@ export function verifyTableToken(tableCode: string, token?: string | null): bool
   }
 
   const payload = `${cleanCode}:${ts}`;
-  const expectedSig = createHmac("sha256", SECRET).update(payload).digest("hex").slice(0, 32);
+  let expectedSig: string;
+  try { expectedSig = createHmac("sha256", getSecret()).update(payload).digest("hex").slice(0, 32); } catch { return false; }
 
   try {
     const a = Buffer.from(sig);

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { consumeRateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit, consumeRateLimitKey } from "@/lib/rate-limit";
 import { normalizeIndianPhone } from "@/lib/indian-phone";
 import type { Json, Database } from "@/lib/database.types";
 import { addDemoOrder, demoOrdersStore } from "@/lib/orders-store";
@@ -8,6 +8,7 @@ import { demoRestaurants } from "@/lib/restaurant-data";
 import { broadcastToKitchen } from "@/lib/realtime-broadcast";
 import { generateOrderCode } from "@/lib/order-code";
 import { verifyTableToken } from "@/lib/table-token";
+import { generateOrderTrackingToken, verifyOrderTrackingToken } from "@/lib/order-tracking-token";
 
 
 const uuidPattern =
@@ -60,10 +61,9 @@ export async function POST(request: Request) {
     const tableId = typeof input.tableId === "string" ? input.tableId : "";
     const uniqueCode = typeof input.uniqueCode === "string" ? input.uniqueCode : "";
     const tableToken = typeof input.tableToken === "string" ? input.tableToken.trim() : "";
-    const rawOrderType = typeof input.orderType === "string" ? input.orderType.trim().toLowerCase() : "";
-    const orderType: "dine_in" | "takeaway" = rawOrderType === "takeaway" ? "takeaway" : "dine_in";
+    const orderType = "dine_in" as const;
     const rawTableLabel = typeof input.tableLabel === "string" ? input.tableLabel.trim() : "";
-    const tableLabel = rawTableLabel || (orderType === "takeaway" ? "Takeaway" : null);
+    const tableLabel = rawTableLabel || null;
     const notes = optionalText(input.notes, 1000);
     const phoneInput = optionalText(input.phone, 24);
     const phone =
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       uniqueCode.startsWith("table");
 
     // Security: Check whether orders are being placed remotely without a valid table QR token
-    if (!isDemo && uniqueCode && !verifyTableToken(uniqueCode, tableToken)) {
+    if (!uniqueCode || !tableId || !tableToken || !verifyTableToken(uniqueCode, tableToken)) {
       return NextResponse.json(
         { error: "Invalid or expired table QR session. Please scan your dining table QR stand to order." },
         { status: 403 },
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     // Security: Per-table rate limiting (max 8 orders per 10 minutes per table)
     if (uniqueCode || tableId) {
       const tableRateKey = `table-order:${uniqueCode || tableId}`;
-      const tableRate = await consumeRateLimit(request, tableRateKey, 8, 600);
+      const tableRate = await consumeRateLimitKey(tableRateKey, 8, 600);
       if (tableRate === "limited") {
         return NextResponse.json(
           { error: "Multiple orders were recently placed for this table. Please wait a moment before adding more items." },
@@ -100,8 +100,8 @@ export async function POST(request: Request) {
     }
 
     const isRestIdValid = isDemo ? Boolean(restaurantId) : uuidPattern.test(restaurantId);
-    const isTableIdValid = !tableId || (isDemo ? true : uuidPattern.test(tableId));
-    const isCodeValid = !uniqueCode || (isDemo ? true : codePattern.test(uniqueCode));
+    const isTableIdValid = isDemo ? Boolean(tableId) : uuidPattern.test(tableId);
+    const isCodeValid = isDemo ? Boolean(uniqueCode) : codePattern.test(uniqueCode);
 
     if (
       !isRestIdValid ||
@@ -249,23 +249,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Calculate order total strictly from server-side menu_items
-    let calculatedTotal = 0;
-    const enrichedItems = items.map((it) => {
-      const m = menuItemMap.get(it.menuItemId);
-      const price = m?.price ?? 0;
-      const itemTotal = price * it.quantity;
-      calculatedTotal += itemTotal;
-      return {
-        menu_item_id: it.menuItemId && uuidPattern.test(it.menuItemId) ? it.menuItemId : null,
-        item_name: m?.name ?? "Menu Item",
-        quantity: it.quantity,
-        unit_price: price,
-        total_price: itemTotal,
-        special_instructions: it.specialInstructions,
-      };
-    });
-
     const callRpc = (fn: string, args: Record<string, unknown>) =>
       supabase.rpc(fn as never, args as never) as unknown as Promise<{
         data: Database["public"]["Tables"]["orders"]["Row"][] | null;
@@ -312,7 +295,8 @@ export async function POST(request: Request) {
         );
       }
 
-      // Direct table insert fallback if RPC has an issue or table resolution differed
+      /* Direct insert fallback intentionally removed: an order and its items must be committed atomically by the RPC. */
+      /*
       try {
         const insertPayload: Record<string, unknown> = {
           restaurant_id: restaurantId,
@@ -385,6 +369,7 @@ export async function POST(request: Request) {
       } catch (fallbackErr) {
         console.error("Direct order insert fallback failed:", fallbackErr);
       }
+      */
 
       console.error("Could not place guest order:", error.message);
       return NextResponse.json(
@@ -412,7 +397,7 @@ export async function POST(request: Request) {
       totalAmount: order.total_amount,
     });
 
-    return NextResponse.json({ order }, { status: 201 });
+    return NextResponse.json({ order, trackingToken: generateOrderTrackingToken(order.id) }, { status: 201 });
   } catch (err: unknown) {
     console.error("Unhandled error in POST /api/orders:", err);
     return NextResponse.json(
@@ -425,8 +410,12 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const orderId = url.searchParams.get("orderId");
+  const trackingToken = url.searchParams.get("trackingToken");
   if (!orderId) {
     return NextResponse.json({ error: "Order ID is required." }, { status: 400 });
+  }
+  if (!verifyOrderTrackingToken(orderId, trackingToken)) {
+    return NextResponse.json({ error: "A valid order tracking token is required." }, { status: 403 });
   }
 
   if (orderId.startsWith("demo-")) {
@@ -434,8 +423,7 @@ export async function GET(request: Request) {
     if (!demoOrder) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
-    const safeDemoOrder = { ...demoOrder, customer_phone: null };
-    return NextResponse.json({ order: safeDemoOrder });
+    return NextResponse.json({ order: { id: demoOrder.id, status: demoOrder.status, order_code: demoOrder.order_code } });
   }
 
   if (!uuidPattern.test(orderId)) {
@@ -454,7 +442,7 @@ export async function GET(request: Request) {
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id, restaurant_id, table_id, table_number, status, total_amount, notes, created_at, updated_at, status_updated_at")
+    .select("id, status, order_code")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -467,17 +455,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
-  const { data: items } = await supabase
-    .from("order_items")
-    .select("id, order_id, menu_item_id, item_name, quantity, unit_price, total_price, special_instructions, created_at")
-    .eq("order_id", order.id)
-    .order("created_at", { ascending: true });
-
-  return NextResponse.json({
-    order: {
-      ...order,
-      status_updated_at: order.status_updated_at || order.updated_at || order.created_at,
-      items: items ?? [],
-    },
-  });
+  return NextResponse.json({ order });
 }

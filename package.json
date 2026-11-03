@@ -7,6 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit",
     "icons:audit": "node scripts/audit-icons.mjs"
   },
   "dependencies": {

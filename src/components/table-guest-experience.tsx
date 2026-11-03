@@ -654,6 +654,8 @@ export default function TableGuestExperience({
           restaurantId: restaurant.id,
           tableId: tableId ?? null,
           tableLabel: resolvedTable,
+          uniqueCode: tableCode ?? "",
+          tableToken: tableToken ?? "",
           type: "call_waiter",
         }),
       });
@@ -691,6 +693,8 @@ export default function TableGuestExperience({
           restaurantId: restaurant.id,
           tableId: tableId ?? null,
           tableLabel: resolvedTable,
+          uniqueCode: tableCode ?? "",
+          tableToken: tableToken ?? "",
           type: "request_bill",
         }),
       });

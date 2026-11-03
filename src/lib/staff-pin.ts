@@ -19,13 +19,13 @@ export async function hashStaffPin(pin: string): Promise<string> {
 
 /**
  * Verifies a candidate PIN against a stored hash using constant-time comparison.
- * If legacy plaintext PIN is passed as fallback, compares in constant time.
+ * Plaintext legacy values are deliberately rejected; migrate them before enabling staff access.
  * Never throws timing leaks.
  */
 export async function verifyStaffPin(
   candidatePin: string,
   storedHash?: string | null,
-  legacyPlaintext?: string | null,
+  _legacyPlaintext?: string | null,
 ): Promise<boolean> {
   const cleanCandidate = (candidatePin || "").trim();
   if (!cleanCandidate) return false;
@@ -45,14 +45,6 @@ export async function verifyStaffPin(
     } catch {
       return false;
     }
-  }
-
-  // 2. Backward compatibility fallback before migration runs (if only legacy plaintext exists)
-  if (legacyPlaintext && legacyPlaintext.trim()) {
-    const expectedBuf = Buffer.from(legacyPlaintext.trim());
-    const candidateBuf = Buffer.from(cleanCandidate);
-    if (expectedBuf.length !== candidateBuf.length) return false;
-    return timingSafeEqual(candidateBuf, expectedBuf);
   }
 
   return false;
