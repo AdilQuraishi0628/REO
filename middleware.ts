@@ -20,6 +20,20 @@ export async function middleware(request: NextRequest) {
     },
   });
   await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/kitchen") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api")
+  ) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  }
+
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+
   return response;
 }
 
