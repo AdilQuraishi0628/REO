@@ -175,6 +175,7 @@ export default function TableGuestExperience({
   const showGoogleReview = restaurant.enableGoogleReviews !== false && Boolean(restaurant.googleReviewUrl);
   const showFeedback = restaurant.enableFeedback !== false;
   const showReviewBtn = showGoogleReview || showFeedback;
+  const showLoyalty = restaurant.loyaltyEnabled !== false;
 
   // Sync props if changed
   useEffect(() => {
@@ -870,8 +871,8 @@ export default function TableGuestExperience({
         </div>
       </section>
 
-      {/* Quick Table Actions: Connect to WiFi, Call Waiter, Request Bill */}
-      {(showWifi || showCallWaiter || showRequestBill) && (
+      {/* Quick Table Actions: Connect to WiFi, Call Waiter, Request Bill, Loyalty */}
+      {(showWifi || showCallWaiter || showRequestBill || showReviewBtn || showLoyalty) && (
         <section aria-label="Table quick actions" className="table-quick-strip">
 
           {showWifi && (
@@ -918,6 +919,17 @@ export default function TableGuestExperience({
                   ? `${t.requestBill} (${billCooldown}s)`
                   : t.requestBill}
               </span>
+            </button>
+          )}
+
+          {showLoyalty && (
+            <button
+              className="table-action-pill loyalty"
+              onClick={() => setAction("loyalty")}
+              type="button"
+            >
+              <IconStar size={14} className="pill-icon-svg" />
+              <span className="pill-text">Loyalty</span>
             </button>
           )}
 
