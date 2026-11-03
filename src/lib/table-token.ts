@@ -33,6 +33,11 @@ export function verifyTableToken(tableCode: string, token?: string | null): bool
 
   if (!token || typeof token !== "string") return false;
 
+  // Direct table unique code session (from physical QR stand URL)
+  if (token.trim() === cleanCode) {
+    return true;
+  }
+
   const parts = token.trim().split(".");
   if (parts.length !== 2) return false;
   const [ts, sig] = parts;
