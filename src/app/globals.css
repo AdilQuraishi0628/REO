@@ -1,5 +1,62 @@
 @import "../styles/motion.css";
 @import "../styles/landing.css";
+
+/* Responsive foundation: phone first, with contained overflow for code and data. */
+html { -webkit-text-size-adjust: 100%; }
+html, body { max-width: 100%; overflow-x: clip; }
+input, select, textarea { font-size: max(16px, 1rem); }
+button, [role="button"], a { -webkit-tap-highlight-color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+/* Guest menu: reachable controls and sheets on a 360px phone. */
+.tabletap-guest-app { min-height: 100dvh; padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+.guest-header { position: sticky; top: 0; z-index: 20; padding-top: env(safe-area-inset-top); background: var(--guest-bg); }
+.guest-controls-bar { position: sticky; top: calc(64px + env(safe-area-inset-top)); z-index: 15; background: var(--guest-bg); }
+.guest-circle-btn, .table-action-pill, .dish-add-btn, .table-quantity-control button { min-width: 44px; min-height: 44px; }
+.table-quick-strip { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.table-action-pill { flex: 0 0 auto; min-height: 44px; font-size: clamp(.75rem, 3.5vw, .9rem); }
+.guest-dish-card { align-items: flex-start; padding: 12px; gap: 10px; }
+.dish-card-thumb { width: 84px; height: 84px; }
+.dish-details { min-width: 0; min-height: 84px; }
+.dish-title-row, .dish-card-bottom-row { align-items: flex-start; flex-wrap: wrap; }
+.dish-name { font-size: clamp(1rem, 4.3vw, 1.15rem); overflow-wrap: anywhere; }
+.dish-desc { -webkit-line-clamp: 3; line-clamp: 3; }
+.table-action-bar { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 8px; }
+.table-action-bar > button, .table-action-bar > a { min-height: 48px; }
+.table-action-sheet { max-height: min(82dvh, 720px); overflow-y: auto; border-radius: 24px 24px 0 0; }
+.table-cart-field input, .table-cart-field textarea { font-size: 16px; }
+
+/* Kitchen: a one-column board on phones; touch controls stay usable. */
+.kitchen-shell { min-height: 100dvh; padding: max(14px, env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom)); }
+.kitchen-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.kitchen-order-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.kitchen-order-card { padding: 16px; font-size: 1.125rem; }
+.kitchen-action-btn, .service-btn, .kitchen-filter, .kitchen-admin-btn, .service-refresh-btn { min-height: 56px; }
+.kitchen-header { padding: 16px; }
+
+@media (min-width: 640px) {
+  .table-action-sheet { width: min(560px, calc(100% - 32px)); margin-inline: auto; border-radius: 24px; bottom: 24px; }
+  .guest-cards-grid { gap: 14px; }
+}
+@media (min-width: 768px) {
+  .tabletap-guest-app { padding-bottom: 32px; }
+  .guest-header-inner, .guest-brand-hero, .table-quick-strip, .guest-controls-bar, .guest-menu-container { max-width: 560px; }
+  .kitchen-shell { padding-inline: clamp(20px, 3vw, 40px); }
+  .kitchen-order-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kitchen-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .kitchen-order-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kitchen-shell { max-width: 1600px; margin-inline: auto; }
+  .table-action-sheet { bottom: 32px; }
+}
+@media (min-width: 1280px) {
+  .tabletap-guest-app { padding-top: 12px; }
+  .guest-dish-card:hover, .table-action-pill:hover:not(:disabled) { transform: translateY(-1px); }
+}
+@media (hover: none) { .guest-dish-card:hover, .table-action-pill:hover:not(:disabled), .guest-circle-btn:hover { transform: none; } }
 @import "../styles/auth.css";
 
 :root {
