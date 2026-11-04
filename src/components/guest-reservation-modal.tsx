@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Icon, IconClose, IconClock, IconTable } from "@/components/icons";
 import { useRealtimeChannel } from "@/hooks/use-realtime-table";
+import { useIosKeyboardAvoid } from "@/hooks/use-ios-keyboard-avoid";
 
 export type ReservationSlot = {
   time: string;
@@ -49,6 +50,17 @@ export default function GuestReservationModal({
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  useIosKeyboardAvoid();
+
+  // Lock body scroll on iOS Safari when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
 
   const [slots, setSlots] = useState<ReservationSlot[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);

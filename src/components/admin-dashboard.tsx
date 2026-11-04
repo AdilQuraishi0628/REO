@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { AdminRestaurant } from "@/lib/admin-auth";
 import { useRealtimeChannel, type ChannelTableConfig } from "@/hooks/use-realtime-table";
+import { useIosKeyboardAvoid } from "@/hooks/use-ios-keyboard-avoid";
 import AdminReservationsSection from "@/components/admin-reservations-section";
 import {
   AnalyticsSection,
@@ -250,7 +251,9 @@ export default function AdminDashboard({
   restaurants,
   userEmail,
 }: AdminDashboardProps) {
+  useIosKeyboardAvoid();
   const [section, setSection] = useState<Section>("profile");
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [restaurantId, setRestaurantId] = useState(restaurants[0]?.id ?? "");
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -790,8 +793,17 @@ export default function AdminDashboard({
       className="tabletap-admin-app admin-dashboard-layout"
       style={{ "--restaurant-primary": data?.restaurant?.primary_color || "#722F37" } as React.CSSProperties}
     >
+      {/* Tablet/Mobile Drawer Backdrop */}
+      {isDrawerOpen && (
+        <div
+          className="admin-drawer-backdrop"
+          onClick={() => setIsDrawerOpen(false)}
+          role="presentation"
+        />
+      )}
+
       {/* Sidebar Navigation */}
-      <aside className="admin-sidebar">
+      <aside className={`admin-sidebar ${isDrawerOpen ? "drawer-open" : ""}`}>
         <div className="sidebar-top">
           <Link className="admin-brand-lockup" href="/">
             <div className="admin-brand-icon-box">
@@ -846,7 +858,10 @@ export default function AdminDashboard({
               aria-current={section === item.id ? "page" : undefined}
               className={`nav-menu-btn admin-nav-item ${section === item.id ? "active" : ""}`}
               key={item.id}
-              onClick={() => setSection(item.id)}
+              onClick={() => {
+                setSection(item.id);
+                setIsDrawerOpen(false);
+              }}
               type="button"
             >
               <span className="nav-item-icon">{getSectionIcon(item.id)}</span>
@@ -897,8 +912,18 @@ export default function AdminDashboard({
         {/* Top Navbar */}
         <header className="admin-topbar">
           <div className="topbar-left">
-            <span className="topbar-sub">Raipur restaurant manager</span>
-            <h1 className="topbar-title">{activeRestaurant?.name ?? "Restaurant Dashboard"}</h1>
+            <button
+              className="admin-drawer-toggle"
+              onClick={() => setIsDrawerOpen((prev) => !prev)}
+              type="button"
+              aria-label="Toggle navigation drawer"
+            >
+              <Icon name="menu" size={20} />
+            </button>
+            <div>
+              <span className="topbar-sub">Raipur restaurant manager</span>
+              <h1 className="topbar-title">{activeRestaurant?.name ?? "Restaurant Dashboard"}</h1>
+            </div>
           </div>
 
           <div className="topbar-right">
@@ -913,6 +938,10 @@ export default function AdminDashboard({
                 </select>
               </div>
             )}
+            <Link className="topbar-action-btn secondary" href="/" title="Back to TableTap Home">
+              <Icon name="arrow-left" size={14} />
+              <span>Home</span>
+            </Link>
             <Link className="topbar-action-btn primary" href="/kitchen">
               <IconClock size={15} />
               <span>Kitchen KDS</span>
@@ -930,13 +959,16 @@ export default function AdminDashboard({
           </div>
         </header>
 
-        {/* Mobile horizontal tabs */}
-        <nav className="admin-mobile-tabs" aria-label="Mobile Navigation">
+        {/* Mobile horizontal tabs / Phone Bottom Tab Bar */}
+        <nav className="admin-mobile-tabs admin-phone-bottom-nav" aria-label="Mobile Navigation">
           {navItems.map((item) => (
             <button
               className={`mobile-tab-btn admin-nav-item ${section === item.id ? "active" : ""}`}
               key={item.id}
-              onClick={() => setSection(item.id)}
+              onClick={() => {
+                setSection(item.id);
+                setIsDrawerOpen(false);
+              }}
               type="button"
             >
               <span className="mobile-tab-icon">{getSectionIcon(item.id)}</span>

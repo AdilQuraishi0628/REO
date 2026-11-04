@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
+import { useIosKeyboardAvoid } from "@/hooks/use-ios-keyboard-avoid";
 import {
   Icon,
   IconClock,
@@ -47,6 +48,7 @@ export default function AdminReservationsSection({
   settings,
   onUpdateSettings,
 }: AdminReservationsSectionProps) {
+  useIosKeyboardAvoid();
   const todayStr = new Date().toISOString().split("T")[0];
 
   const [tab, setTab] = useState<"today" | "upcoming" | "past">("today");

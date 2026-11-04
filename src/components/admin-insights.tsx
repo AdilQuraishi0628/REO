@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/icons";
 import { trackProductEvent } from "@/lib/product-analytics";
+import { useIosKeyboardAvoid } from "@/hooks/use-ios-keyboard-avoid";
 
 type AnalyticsRange = "7d" | "30d" | "all";
 type FeedbackFilter = "all" | "unresolved" | "high" | "low";
@@ -279,6 +280,7 @@ export function FeedbackAdminSection({ restaurantId }: { restaurantId: string })
 }
 
 export function LoyaltyAdminSection({ restaurantId }: { restaurantId: string }) {
+  useIosKeyboardAvoid();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [members, setMembers] = useState<LoyaltyMember[]>([]);
