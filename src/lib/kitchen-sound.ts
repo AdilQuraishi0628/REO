@@ -33,6 +33,34 @@ export function getSoundPreference(): boolean {
 }
 
 /**
+ * Unlocks AudioContext on iOS Safari upon explicit user gesture.
+ */
+export async function unlockAudioContext(): Promise<boolean> {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+  try {
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+    return ctx.state === "running";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Checks whether AudioContext is running without prompting.
+ */
+export function isAudioContextRunning(): boolean {
+  return sharedAudioContext !== null && sharedAudioContext.state === "running";
+}
+
+/**
  * Persists kitchen sound preference in localStorage.
  */
 export function setSoundPreference(enabled: boolean): void {

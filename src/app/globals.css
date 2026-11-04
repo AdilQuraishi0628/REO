@@ -84,6 +84,89 @@ button, [role="button"], a {
 .kitchen-action-btn, .service-btn, .kitchen-filter, .kitchen-admin-btn, .service-refresh-btn { min-height: 56px; }
 .kitchen-header { padding: 16px; }
 
+.kitchen-audio-unlock-banner {
+  background: #722F37;
+  color: #F7F1E9;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 16px rgba(114, 47, 55, 0.25);
+}
+.kitchen-audio-unlock-banner .audio-unlock-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+}
+.kitchen-audio-unlock-banner .audio-unlock-info strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+.kitchen-audio-unlock-banner .audio-unlock-info p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  opacity: 0.9;
+}
+.btn-unlock-audio {
+  min-height: 48px;
+  padding: 0 20px;
+  background: #F7F1E9;
+  color: #722F37;
+  border: none;
+  border-radius: 9999px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  touch-action: manipulation;
+}
+.kitchen-wakelock-notice {
+  background: rgba(184, 138, 74, 0.15);
+  border: 1px solid rgba(184, 138, 74, 0.3);
+  color: #5C4018;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.kitchen-wakelock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(184, 138, 74, 0.12);
+  border: 1px solid rgba(184, 138, 74, 0.25);
+  color: #5C4018;
+}
+.kitchen-wakelock-pill.active {
+  background: rgba(40, 82, 51, 0.12);
+  border-color: rgba(40, 82, 51, 0.25);
+  color: #285233;
+}
+.wakelock-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #A89582;
+}
+.wakelock-dot.active {
+  background: #285233;
+  box-shadow: 0 0 6px #285233;
+}
+
 @media (min-width: 640px) {
   .guest-modal-backdrop {
     align-items: center;

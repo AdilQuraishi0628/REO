@@ -12,6 +12,8 @@ import {
   getSoundPreference,
   setSoundPreference,
   playOrderAlertChime,
+  unlockAudioContext,
+  isAudioContextRunning,
 } from "@/lib/kitchen-sound";
 import {
   Icon,
@@ -114,11 +116,57 @@ export default function KitchenDisplay({
   const [now, setNow] = useState(Date.now());
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState<boolean>(false);
+  const [wakeLockActive, setWakeLockActive] = useState<boolean>(false);
+  const [wakeLockSupported, setWakeLockSupported] = useState<boolean>(true);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  // Initialize sound preference from localStorage
+  // Initialize sound preference and audio unlock status
   useEffect(() => {
     setSoundEnabled(getSoundPreference());
+    setIsAudioUnlocked(isAudioContextRunning());
+  }, []);
+
+  // Screen Wake Lock API to prevent kitchen tablet display from sleeping
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("wakeLock" in navigator)) {
+      setWakeLockSupported(false);
+      return;
+    }
+
+    let sentinel: { release: () => Promise<void>; addEventListener: (event: string, fn: () => void) => void } | null = null;
+
+    async function requestWakeLock() {
+      try {
+        if ("wakeLock" in navigator && document.visibilityState === "visible") {
+          sentinel = await (navigator as unknown as { wakeLock: { request: (type: string) => Promise<{ release: () => Promise<void>; addEventListener: (event: string, fn: () => void) => void }> } }).wakeLock.request("screen");
+          setWakeLockActive(true);
+          sentinel.addEventListener("release", () => {
+            setWakeLockActive(false);
+          });
+        }
+      } catch (err) {
+        console.warn("[Kitchen] Wake lock error:", err);
+        setWakeLockActive(false);
+      }
+    }
+
+    void requestWakeLock();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void requestWakeLock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (sentinel) {
+        void sentinel.release().catch(() => {});
+      }
+    };
   }, []);
 
   // Timer: Tick locally every 30s to update live duration badges and clock
@@ -269,6 +317,31 @@ export default function KitchenDisplay({
     return () => window.clearInterval(pollInterval);
   }, [refetchOrders, refetchServiceRequests]);
 
+  // iOS tab suspension recovery: immediately reconnect realtime and refetch on visibilitychange, pageshow, and online
+  useEffect(() => {
+    const handleReconnect = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void refetchOrders();
+        void refetchServiceRequests();
+      }
+    };
+
+    const handleOnline = () => {
+      void refetchOrders();
+      void refetchServiceRequests();
+    };
+
+    window.addEventListener("visibilitychange", handleReconnect);
+    window.addEventListener("pageshow", handleReconnect);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleReconnect);
+      window.removeEventListener("pageshow", handleReconnect);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [refetchOrders, refetchServiceRequests]);
+
   // Realtime Broadcast subscription on kitchen-${restaurantId}
   const { status: broadcastStatus } = useRealtimeChannel({
     channelName: `kitchen-${restaurantId}`,
@@ -386,12 +459,24 @@ export default function KitchenDisplay({
     return "connecting";
   }, [ordersStatus, serviceRequestsStatus, broadcastStatus]);
 
+  // Unlock audio gesture for iOS Safari
+  const handleUnlockAudio = async () => {
+    const success = await unlockAudioContext();
+    if (success) {
+      setIsAudioUnlocked(true);
+      void playOrderAlertChime();
+      showToast("Order chime audio unlocked", "success");
+    }
+  };
+
   // Toggle sound alert
-  const toggleSound = () => {
+  const toggleSound = async () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
     setSoundPreference(next);
     if (next) {
+      const unlocked = await unlockAudioContext();
+      if (unlocked) setIsAudioUnlocked(true);
       void playOrderAlertChime();
     }
   };
@@ -534,6 +619,34 @@ export default function KitchenDisplay({
 
   return (
     <main className="kitchen-shell">
+      {/* Audio Unlock Banner for iOS & Mobile Browsers */}
+      {!isAudioUnlocked && soundEnabled && (
+        <div className="kitchen-audio-unlock-banner" role="region" aria-label="Audio notification prompt">
+          <div className="audio-unlock-info">
+            <Icon name="volume" size={20} />
+            <div>
+              <strong>Order notification sound requires one tap</strong>
+              <p>iOS and tablet browsers block sound until you tap to activate the audio context.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-unlock-audio"
+            onClick={() => void handleUnlockAudio()}
+          >
+            Tap to turn on order sounds
+          </button>
+        </div>
+      )}
+
+      {/* Wake Lock Unsupported Notice */}
+      {!wakeLockSupported && (
+        <div className="kitchen-wakelock-notice" role="note">
+          <Icon name="alert" size={14} />
+          <span>Screen Wake Lock is not supported on this browser. Please set tablet screen auto-lock to &quot;Never&quot; in device settings.</span>
+        </div>
+      )}
+
       {/* Toast Notification Banner (Floating top alert for errors & optimistic rollback) */}
       {toast && (
         <div
@@ -606,6 +719,17 @@ export default function KitchenDisplay({
             <span className="clock-divider">·</span>
             <strong className="clock-digits">{clockString}</strong>
           </div>
+
+          {/* Wake Lock Active Indicator */}
+          {wakeLockSupported && (
+            <div
+              className={`kitchen-wakelock-pill ${wakeLockActive ? "active" : "inactive"}`}
+              title={wakeLockActive ? "Screen wake lock active: display will stay on" : "Wake lock inactive"}
+            >
+              <span className={`wakelock-dot ${wakeLockActive ? "active" : ""}`} />
+              <span className="wakelock-label">{wakeLockActive ? "Awake" : "Sleep allowed"}</span>
+            </div>
+          )}
 
           {/* Multi-Restaurant Selector */}
           {restaurants.length > 1 && !isStaffSession && (

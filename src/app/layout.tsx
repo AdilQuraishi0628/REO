@@ -5,17 +5,13 @@ import "./globals.css";
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["500", "600"],
   display: "swap",
-  preload: true,
   variable: "--font-cormorant",
 });
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
   display: "swap",
-  preload: true,
   variable: "--font-dm-sans",
 });
 
