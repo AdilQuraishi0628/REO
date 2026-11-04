@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GuestPageData, MenuItem, MenuCategory } from "@/lib/restaurant-data";
 import { useRealtimeChannel, type ChannelTableConfig } from "@/hooks/use-realtime-table";
+import { useIosKeyboardAvoid } from "@/hooks/use-ios-keyboard-avoid";
 import LiveOrderTracker, {
   getPersistedOrder,
   persistOrder,
@@ -135,12 +137,24 @@ export default function TableGuestExperience({
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [activeTrackingToken, setActiveTrackingToken] = useState<string | null>(null);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
+  const { keyboardHeight } = useIosKeyboardAvoid();
+
   const [cart, setCart] = useState<CartLine[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [vegOnly, setVegOnly] = useState(false);
   const [action, setAction] = useState<GuestAction>(null);
+
+  // Lock body scroll when an action sheet or modal is open on iOS
+  useEffect(() => {
+    if (!action && !isReservationOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [action, isReservationOpen]);
   const [orderPhone, setOrderPhone] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [orderError, setOrderError] = useState("");
@@ -820,12 +834,12 @@ export default function TableGuestExperience({
       {/* 1. Top Bar: Table Badge Pill on Left, Search & Service Bell on Right */}
       <header className="guest-header">
         <div className="guest-header-inner">
-          <div className="guest-table-badge">
+          <Link href="/" className="guest-table-badge" aria-label="TableTap Home">
             <span className="table-badge-t">
               <IconMonogramT size={13} />
             </span>
             <span className="badge-text">{effectiveTableLabel}</span>
-          </div>
+          </Link>
 
           <div className="guest-header-actions">
             <button
@@ -1230,7 +1244,7 @@ export default function TableGuestExperience({
                                     <Image
                                       alt={item.name}
                                       className="dish-img"
-                                      height={88}
+                                      height={84}
                                       loading="lazy"
                                       onError={() => {
                                         if (hasPrimary) {
@@ -1239,9 +1253,10 @@ export default function TableGuestExperience({
                                           setFallbackBrokenImages((prev) => ({ ...prev, [item.id]: true }));
                                         }
                                       }}
+                                      sizes="84px"
                                       src={effectiveUrl}
                                       unoptimized
-                                      width={88}
+                                      width={84}
                                     />
                                   </div>
                                 );
@@ -1379,6 +1394,50 @@ export default function TableGuestExperience({
         </footer>
       )}
 
+      {/* 4b. One-handed thumb dock for Call Waiter / Request Bill when cart is empty */}
+      {itemCount === 0 && (showCallWaiter || showRequestBill) && (
+        <footer className="guest-sticky-bottom-bar guest-bottom-service-bar">
+          <div className="bottom-bar-inner">
+            <div className="bottom-service-row">
+              {showCallWaiter && (
+                <button
+                  className={`guest-bottom-service-btn waiter ${waiterCooldown > 0 ? "disabled" : ""}`}
+                  disabled={isCallingWaiter || waiterCooldown > 0}
+                  onClick={() => void handleCallWaiter()}
+                  type="button"
+                >
+                  <IconBell size={16} />
+                  <span>
+                    {isCallingWaiter
+                      ? t.callingWaiter
+                      : waiterCooldown > 0
+                      ? `${t.callWaiter} (${waiterCooldown}s)`
+                      : t.callWaiter}
+                  </span>
+                </button>
+              )}
+              {showRequestBill && (
+                <button
+                  className={`guest-bottom-service-btn bill ${billCooldown > 0 ? "disabled" : ""}`}
+                  disabled={isRequestingBill || billCooldown > 0}
+                  onClick={() => void handleRequestBill()}
+                  type="button"
+                >
+                  <IconOrder size={16} />
+                  <span>
+                    {isRequestingBill
+                      ? t.requestingBill
+                      : billCooldown > 0
+                      ? `${t.requestBill} (${billCooldown}s)`
+                      : t.requestBill}
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        </footer>
+      )}
+
       {/* 5. Modals / Action Sheets */}
       {action && (
         <div className="guest-modal-backdrop" onClick={() => setAction(null)} role="presentation">
@@ -1387,6 +1446,9 @@ export default function TableGuestExperience({
             className="guest-sheet-container"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
+            style={{
+              paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined,
+            }}
           >
             {/* Sheet Header */}
             <div className="sheet-header">
@@ -2021,6 +2083,13 @@ export default function TableGuestExperience({
               </div>
             )}
           </section>
+        </div>
+      )}
+
+      {copiedWifi && (
+        <div className="guest-toast-pill" role="status" aria-live="polite">
+          <Icon name="check" size={14} />
+          <span>Wi-Fi password copied to clipboard</span>
         </div>
       )}
 

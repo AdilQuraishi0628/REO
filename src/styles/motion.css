@@ -363,6 +363,7 @@
 .guest-modal-backdrop {
   background: rgba(114, 47, 55, 0.22);
   backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   animation: motionFade var(--dur-base, 250ms) var(--ease-out) both;
 }
 

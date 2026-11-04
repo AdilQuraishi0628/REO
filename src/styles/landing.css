@@ -28,8 +28,8 @@
   --tt-border-light: rgba(114, 47, 55, 0.12);
 
   /* Typography */
-  --tt-font-serif: "Cormorant Garamond", Georgia, serif;
-  --tt-font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --tt-font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --tt-font-sans: var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Easing & Timing */
   --tt-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -803,6 +803,7 @@
   inset: 0;
   background: rgba(30, 20, 22, 0.6);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1000;
   display: flex;
   justify-content: flex-end;

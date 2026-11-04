@@ -14,8 +14,8 @@
   --auth-brass: #B88A4A;
   --auth-err: #A3283A;
   --auth-ok: #3F6B4F;
-  --auth-serif: 'Cormorant Garamond', Georgia, serif;
-  --auth-sans: 'DM Sans', system-ui, sans-serif;
+  --auth-serif: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
+  --auth-sans: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
   --auth-e: cubic-bezier(.22, 1, .36, 1);
 }
 
