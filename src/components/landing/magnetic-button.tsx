@@ -27,7 +27,11 @@ export function MagneticButton({
     const el = btnRef.current;
     if (!el) return;
 
-    if (typeof window !== "undefined" && (window.matchMedia("(hover: none)").matches || window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+    if (
+      typeof window !== "undefined" &&
+      (window.matchMedia("(hover: none) or (pointer: coarse)").matches ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+    ) {
       return;
     }
 

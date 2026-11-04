@@ -14,7 +14,11 @@ export function HeroPhoneMockup() {
     const container = containerRef.current;
     if (!container) return;
 
-    if (typeof window !== "undefined" && (window.matchMedia("(hover: none)").matches || window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+    if (
+      typeof window !== "undefined" &&
+      (window.matchMedia("(hover: none) or (pointer: coarse)").matches ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+    ) {
       setTilt({ rotateX: 0, rotateY: 0, parallaxX: 0, parallaxY: 0 });
       return;
     }

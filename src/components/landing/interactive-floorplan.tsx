@@ -96,6 +96,20 @@ export function InteractiveFloorplan() {
   const [flyAnimation, setFlyAnimation] = useState<string | null>(null);
   const [simulatedSent, setSimulatedSent] = useState(false);
 
+  React.useEffect(() => {
+    if (!selectedTable) return;
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedTable(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = origOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedTable]);
+
   const activeVenue = selectedTable
     ? demoRestaurants[selectedTable.restaurantSlug] || demoRestaurants["juniper-and-rye"]
     : null;

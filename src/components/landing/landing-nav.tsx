@@ -9,6 +9,7 @@ export function LandingNav() {
   const [scrolled, setScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeSection, setActiveSection] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,7 +22,7 @@ export function LandingNav() {
       }
 
       // Check active sections
-      const sections = ["floorplan", "how-it-works", "kds", "loyalty", "features"];
+      const sections = ["floorplan", "how-it-works", "kds", "loyalty", "features", "pricing"];
       let current = "";
       for (const id of sections) {
         const el = document.getElementById(id);
@@ -40,6 +41,29 @@ export function LandingNav() {
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = origOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
+  const navLinks = [
+    { href: "#floorplan", label: "Demo Tables", id: "floorplan" },
+    { href: "#how-it-works", label: "How It Works", id: "how-it-works" },
+    { href: "#kds", label: "Kitchen KDS", id: "kds" },
+    { href: "#loyalty", label: "Loyalty & Reviews", id: "loyalty" },
+    { href: "#features", label: "Features", id: "features" },
+    { href: "#pricing", label: "Pricing & Beta", id: "pricing" },
+  ];
 
   return (
     <>
@@ -63,52 +87,109 @@ export function LandingNav() {
             </div>
           </Link>
 
-          {/* Navigation Links */}
+          {/* Desktop Navigation Links */}
           <nav className="tt-nav-links" aria-label="Main Navigation">
-            <a
-              href="#floorplan"
-              className={`tt-nav-link ${activeSection === "floorplan" ? "active" : ""}`}
-            >
-              Demo Tables
-            </a>
-            <a
-              href="#how-it-works"
-              className={`tt-nav-link ${activeSection === "how-it-works" ? "active" : ""}`}
-            >
-              How It Works
-            </a>
-            <a
-              href="#kds"
-              className={`tt-nav-link ${activeSection === "kds" ? "active" : ""}`}
-            >
-              Kitchen KDS
-            </a>
-            <a
-              href="#loyalty"
-              className={`tt-nav-link ${activeSection === "loyalty" ? "active" : ""}`}
-            >
-              Loyalty &amp; Reviews
-            </a>
-            <a
-              href="#features"
-              className={`tt-nav-link ${activeSection === "features" ? "active" : ""}`}
-            >
-              Features
-            </a>
+            {navLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.href}
+                className={`tt-nav-link ${activeSection === link.id ? "active" : ""}`}
+              >
+                {link.label}
+              </a>
+            ))}
           </nav>
 
-          {/* Actions */}
+          {/* Actions & Mobile Menu Toggle */}
           <div className="tt-nav-actions">
             <Link href="/admin/login" className="tt-btn-text" data-cursor="Login">
               Owner Login
             </Link>
-            <MagneticButton href="/admin/signup" variant="primary" dataCursor="Join">
-              <span>Get Started Free</span>
-              <Icon name="arrow-right" size={14} />
-            </MagneticButton>
+            <div className="tt-nav-primary-cta">
+              <MagneticButton href="/admin/signup" variant="primary" dataCursor="Join">
+                <span>Get Started Free</span>
+                <Icon name="arrow-right" size={14} />
+              </MagneticButton>
+            </div>
+            <button
+              type="button"
+              className="tt-mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
+            >
+              <Icon name={mobileMenuOpen ? "close" : "menu"} size={22} />
+            </button>
           </div>
         </div>
       </header>
+
+      {/* Mobile Drawer Navigation (Tablet & Phone) */}
+      <div
+        className={`tt-mobile-nav-overlay ${mobileMenuOpen ? "open" : ""}`}
+        onClick={() => setMobileMenuOpen(false)}
+        aria-hidden={!mobileMenuOpen}
+      >
+        <div
+          className={`tt-mobile-nav-drawer ${mobileMenuOpen ? "open" : ""}`}
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation Menu"
+        >
+          <div className="tt-mobile-nav-header">
+            <div className="tt-mobile-nav-brand">
+              <div className="tt-brand-monogram">
+                <Icon name="monogram-t" size={20} />
+              </div>
+              <div className="tt-brand-words">
+                <span className="tt-brand-title">TableTap</span>
+                <span className="tt-brand-subtitle">Raipur Hospitality</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="tt-mobile-nav-close"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close navigation menu"
+            >
+              <Icon name="close" size={20} />
+            </button>
+          </div>
+
+          <nav className="tt-mobile-nav-links" aria-label="Mobile Navigation">
+            {navLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.href}
+                className={`tt-mobile-nav-link ${activeSection === link.id ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span>{link.label}</span>
+                <Icon name="chevron-right" size={16} />
+              </a>
+            ))}
+          </nav>
+
+          <div className="tt-mobile-nav-actions">
+            <Link
+              href="/admin/login"
+              className="tt-mobile-nav-btn secondary"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Owner Login
+            </Link>
+            <Link
+              href="/admin/signup"
+              className="tt-mobile-nav-btn primary"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span>Get Started Free</span>
+              <Icon name="arrow-right" size={16} />
+            </Link>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
