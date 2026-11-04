@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 import { trackProductEvent } from "@/lib/product-analytics";
+import { useIosKeyboardAvoid } from "@/hooks/use-ios-keyboard-avoid";
 
 type AuthMode =
   | "login"
@@ -71,6 +72,7 @@ export default function AuthForm({
   initialTab?: "owner" | "kitchen";
 }) {
   const [activeTab, setActiveTab] = useState<"owner" | "kitchen">(initialTab);
+  useIosKeyboardAvoid();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");

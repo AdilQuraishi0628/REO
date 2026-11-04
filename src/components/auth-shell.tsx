@@ -86,7 +86,12 @@ export default function AuthShell({
             <i>T</i>
             <span>TableTap</span>
           </Link>
-          {userEmail && <span className="auth-user-tag">{userEmail}</span>}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Link href="/" className="auth-back-btn" title="Back to TableTap Home" aria-label="Back to TableTap Home">
+              ← Home
+            </Link>
+            {userEmail && <span className="auth-user-tag">{userEmail}</span>}
+          </div>
         </div>
 
         <div className="auth-panel-mid">
@@ -131,6 +136,11 @@ export default function AuthShell({
 
       <main className="auth-side">
         <div className="auth-box">
+          <div className="auth-mobile-nav">
+            <Link href="/" className="auth-mobile-back" aria-label="Back to TableTap Home">
+              ← TableTap Home
+            </Link>
+          </div>
           {children}
 
           <div className="auth-foot">

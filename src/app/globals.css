@@ -7,6 +7,7 @@ html, body { max-width: 100%; overflow-x: clip; }
 input, select, textarea {
   font-size: max(16px, 1rem);
   -webkit-appearance: none;
+  appearance: none;
 }
 button, [role="button"], a {
   -webkit-tap-highlight-color: transparent;

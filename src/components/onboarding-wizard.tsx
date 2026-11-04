@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import AuthShell from "@/components/auth-shell";
 import GuestPagePreview from "@/components/guest-page-preview";
 import { trackProductEvent } from "@/lib/product-analytics";
+import { useIosKeyboardAvoid } from "@/hooks/use-ios-keyboard-avoid";
 
 type SetupRestaurant = {
   id: string;
@@ -42,6 +43,7 @@ async function requestSetup(
 }
 
 export default function OnboardingWizard({ email }: { email: string }) {
+  useIosKeyboardAvoid();
   const [restaurant, setRestaurant] = useState<SetupRestaurant | null>(null);
   const [step, setStep] = useState(0);
   const [guestUrl, setGuestUrl] = useState("");
