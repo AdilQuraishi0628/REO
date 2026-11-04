@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 
 export function PricingAndContact() {
   return (
-    <section className="tt-pricing-section" id="pricing" style={{ padding: "80px 24px", background: "var(--tt-cream)" }}>
+    <section className="tt-pricing-section" id="pricing" style={{ padding: "clamp(48px, 8vw, 80px) clamp(16px, 4vw, 24px)", background: "var(--tt-cream)" }}>
       <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
         {/* Section Header */}
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
@@ -54,13 +54,15 @@ export function PricingAndContact() {
             style={{
               background: "#ffffff",
               borderRadius: "16px",
-              padding: "36px 28px",
+              padding: "clamp(20px, 5vw, 36px) clamp(16px, 4vw, 28px)",
               border: "2px solid var(--tt-burgundy)",
               position: "relative",
               boxShadow: "0 10px 30px rgba(114, 47, 55, 0.08)",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
+              minWidth: 0,
+              overflow: "hidden",
             }}
           >
             <div
@@ -133,11 +135,13 @@ export function PricingAndContact() {
             style={{
               background: "#ffffff",
               borderRadius: "16px",
-              padding: "36px 28px",
+              padding: "clamp(20px, 5vw, 36px) clamp(16px, 4vw, 28px)",
               border: "1px solid var(--tt-border)",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
+              minWidth: 0,
+              overflow: "hidden",
             }}
           >
             <div>
@@ -147,11 +151,34 @@ export function PricingAndContact() {
               <p style={{ fontSize: "14px", color: "var(--tt-ink-muted)", margin: "8px 0 20px" }}>
                 Commercial SaaS subscription following public beta completion.
               </p>
-              <div style={{ margin: "24px 0", display: "flex", alignItems: "baseline", gap: "6px" }}>
-                <span style={{ fontSize: "34px", fontWeight: 800, color: "var(--tt-ink)" }}>{`{PRICING_MONTHLY}`}</span>
-                <span style={{ fontSize: "14px", color: "var(--tt-ink-muted)" }}>/ month</span>
+              <div style={{ margin: "20px 0", display: "flex", alignItems: "baseline", gap: "6px", flexWrap: "wrap", minWidth: 0 }}>
+                <span
+                  style={{
+                    fontSize: "clamp(20px, 5.2vw, 32px)",
+                    fontWeight: 800,
+                    color: "var(--tt-ink)",
+                    wordBreak: "break-all",
+                    overflowWrap: "anywhere",
+                    maxWidth: "100%",
+                    display: "inline-block",
+                    lineHeight: 1.15,
+                  }}
+                >
+                  {`{PRICING_MONTHLY}`}
+                </span>
+                <span style={{ fontSize: "14px", color: "var(--tt-ink-muted)", whiteSpace: "nowrap" }}>/ month</span>
               </div>
-              <p style={{ fontSize: "12px", color: "var(--tt-brass)", margin: "-16px 0 20px", fontWeight: 600 }}>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "var(--tt-brass)",
+                  margin: "-12px 0 20px",
+                  fontWeight: 600,
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                  lineHeight: 1.45,
+                }}
+              >
                 or {`{PRICING_ANNUAL}`}/year billed in {`{BILLING_CURRENCY}`} via {`{PAYMENT_GATEWAY_PROVIDER}`}
               </p>
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px 0", display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px", color: "var(--tt-ink-muted)" }}>

@@ -1407,10 +1407,12 @@
   background: var(--tt-cream-card);
   border: 1px solid var(--tt-border);
   border-radius: 24px;
-  padding: 36px;
+  padding: clamp(20px, 4vw, 36px);
   box-shadow: var(--tt-shadow-card);
   display: flex;
   flex-direction: column;
+  min-width: 0; /* prevent grid blowout */
+  overflow: hidden;
 }
 
 .tt-card-badge {
@@ -1424,7 +1426,7 @@
 
 .tt-demo-card h3 {
   font-family: var(--tt-font-serif);
-  font-size: 28px;
+  font-size: clamp(22px, 4vw, 28px);
   color: var(--tt-ink);
   margin: 0 0 10px;
 }
@@ -1434,6 +1436,8 @@
   color: var(--tt-ink-muted);
   line-height: 1.55;
   margin: 0 0 24px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Stamp Card Simulator */
@@ -1446,27 +1450,76 @@
   flex-direction: column;
   gap: 16px;
   position: relative;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.tt-stamp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tt-stamp-header-text {
+  min-width: 0;
+  flex: 1 1 160px;
+}
+
+.tt-stamp-title {
+  font-size: 14px;
+  color: var(--tt-ink);
+  display: block;
+  line-height: 1.3;
+}
+
+.tt-stamp-goal {
+  display: block;
+  font-size: 11px;
+  color: var(--tt-ink-muted);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+.tt-stamp-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tt-burgundy);
+  background: var(--tt-burgundy-soft);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .tt-stamp-slots {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: clamp(6px, 1.8vw, 10px);
+  width: 100%;
 }
 
 .tt-stamp-slot {
-  width: 50px;
-  height: 50px;
+  flex: 1 1 0;
+  max-width: 50px;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  height: auto;
   border-radius: 50%;
   border: 2px dashed var(--tt-border);
   background: #FFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: clamp(12px, 3.2vw, 15px);
   font-weight: 700;
   color: var(--tt-border);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: all var(--tt-duration-fast) var(--tt-ease);
 }
 
@@ -1527,19 +1580,28 @@
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  width: 100%;
 }
 
 .tt-stars-row {
   display: flex;
-  gap: 8px;
+  justify-content: center;
+  gap: clamp(4px, 2vw, 10px);
 }
 
 .tt-star-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #D1D5DB;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.2s var(--tt-ease), color 0.2s ease;
 }
 
@@ -1547,6 +1609,18 @@
 .tt-star-btn.hovered {
   color: #F59E0B;
   transform: scale(1.15);
+}
+
+.tt-review-outcome-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 440px) {
+  .tt-review-outcome-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tt-review-feedback-outcome {
@@ -1724,6 +1798,7 @@
   }
   .tt-dual-demo-grid {
     grid-template-columns: 1fr;
+    gap: 28px;
   }
   .tt-editorial-features {
     grid-template-columns: 1fr;
@@ -1800,6 +1875,39 @@
     width: 100%;
     text-align: center;
     justify-content: center;
+  }
+  /* Loyalty & reviews — single column on phone */
+  .tt-dual-demo-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .tt-demo-card {
+    padding: clamp(16px, 4vw, 24px);
+    border-radius: 18px;
+  }
+  .tt-stamp-card {
+    padding: clamp(14px, 3.5vw, 18px);
+    border-radius: 14px;
+  }
+  .tt-star-simulator {
+    padding: clamp(14px, 3.5vw, 18px);
+    border-radius: 14px;
+  }
+  .tt-stamp-slots {
+    gap: 6px;
+  }
+  /* Pricing cards */
+  .tt-pricing-section {
+    padding: 48px 16px !important;
+  }
+  .tt-section-wrap {
+    padding: 48px 16px;
+  }
+  .tt-how-pinned-section {
+    padding: 60px 16px;
+  }
+  .tt-kds-contrast-section {
+    padding: 60px 16px;
   }
 }
 

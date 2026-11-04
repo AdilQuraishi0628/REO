@@ -141,25 +141,16 @@ export function InteractiveLoyaltyReviews() {
               }}
             />
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <strong style={{ fontSize: "14px", color: "var(--tt-ink)" }}>
+            <div className="tt-stamp-header">
+              <div className="tt-stamp-header-text">
+                <strong className="tt-stamp-title">
                   Juniper &amp; Rye Coffee Pass
                 </strong>
-                <span style={{ display: "block", fontSize: "11px", color: "var(--tt-ink-muted)" }}>
+                <span className="tt-stamp-goal">
                   Goal: 5 visits = Free Flat White or Cold Brew
                 </span>
               </div>
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  color: "var(--tt-burgundy)",
-                  background: "var(--tt-burgundy-soft)",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                }}
-              >
+              <span className="tt-stamp-badge">
                 {stampCount} of 5 Stamped
               </span>
             </div>
@@ -248,14 +239,14 @@ export function InteractiveLoyaltyReviews() {
                     Shown to all guests
                   </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                <div className="tt-review-outcome-grid">
                   <div style={{ padding: "8px", background: "var(--tt-cream)", borderRadius: "8px", border: "1px solid var(--tt-border)" }}>
                     <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--tt-ink)", display: "block" }}>1. Public Google Review</span>
-                    <span style={{ fontSize: "10px", color: "var(--tt-ink-muted)" }}>Direct link to leave honest review on Google Maps.</span>
+                    <span style={{ fontSize: "10px", color: "var(--tt-ink-muted)", display: "block", marginTop: "2px" }}>Direct link to leave honest review on Google Maps.</span>
                   </div>
                   <div style={{ padding: "8px", background: "var(--tt-cream)", borderRadius: "8px", border: "1px solid var(--tt-border)" }}>
                     <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--tt-ink)", display: "block" }}>2. Private Manager Note</span>
-                    <span style={{ fontSize: "10px", color: "var(--tt-ink-muted)" }}>Optional direct message to resolve grievances quickly.</span>
+                    <span style={{ fontSize: "10px", color: "var(--tt-ink-muted)", display: "block", marginTop: "2px" }}>Optional direct message to resolve grievances quickly.</span>
                   </div>
                 </div>
               </div>
