@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "playwright test",
     "typecheck": "tsc --noEmit",
+    "test:server-config": "tsx scripts/test-server-config.ts",
     "icons:audit": "node scripts/audit-icons.mjs"
   },
   "dependencies": {

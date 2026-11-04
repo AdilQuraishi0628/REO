@@ -5,6 +5,7 @@ import { addDemoServiceRequest } from "@/lib/service-requests-store";
 import { uuidPattern } from "@/lib/admin-auth";
 import { broadcastToKitchen } from "@/lib/realtime-broadcast";
 import { verifyTableToken } from "@/lib/table-token";
+import { missingServiceRoleInProduction } from "@/lib/server-config";
 
 type ServiceRequestBody = {
   restaurantId: string;
@@ -17,6 +18,8 @@ type ServiceRequestBody = {
 };
 
 export async function POST(request: Request) {
+  const configurationError = missingServiceRoleInProduction("Service requests");
+  if (configurationError) return NextResponse.json({ error: configurationError }, { status: 500 });
   const rate = await consumeRateLimit(request, "guest-service-request", 12, 300);
   if (rate !== "allowed") {
     return NextResponse.json(

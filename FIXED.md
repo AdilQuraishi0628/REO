@@ -11,6 +11,8 @@ All fixes listed below were developed, committed, deployed to production (`https
 | SEC-4/5 | Anonymous table grants revoked in migration; default/plaintext PIN path removed | migration review plus build checks |
 | SEC-6 | Public order lookup now requires a tracking token and returns only ID/status/code | `npm run typecheck`, `npm run lint`, `npm run build` |
 
+| SEC-A/B/C | Production service-role guard, staging PIN conversion script, PIN reset marker, 12-character table codes and QR regeneration endpoint | `npm run test:server-config`, `npm run typecheck` |
+
 ---
 
 ## 1. Summary of Commits & Fixes

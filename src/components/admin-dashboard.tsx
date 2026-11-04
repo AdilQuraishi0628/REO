@@ -2718,6 +2718,21 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
     }
   }
 
+  async function regenerateQr(table: ManagedTable) {
+    if (!window.confirm(`Regenerate ${table.table_number}'s QR link? The old QR and NFC link will stop working immediately.`)) return;
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/admin/${restaurantId}/tables`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: table.id, action: "regenerate-qr" }),
+      });
+      await parseResponse(response);
+      setMessage(`New QR link created for ${table.table_number}. Replace all printed QR and NFC links.`);
+      await loadTables();
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : "Could not regenerate the QR link."); }
+    finally { setIsBusy(false); }
+  }
+
   async function deleteTable(id: string) {
     if (!window.confirm("Delete this table? Its QR code and NFC tag will stop working.")) return;
     setIsBusy(true);
@@ -3073,6 +3088,14 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
                       </a>
                     </div>
 
+                    <button
+                      className="table-link-btn secondary"
+                      onClick={() => void regenerateQr(table)}
+                      title="Invalidate the old QR and create a new link"
+                      type="button"
+                    >
+                      Regenerate QR
+                    </button>
                     <button
                       aria-label={`Copy link for ${table.table_number}`}
                       className={`table-link-btn nfc-copy ${isCopied ? "copied" : ""}`}

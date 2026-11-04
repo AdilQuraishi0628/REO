@@ -9,6 +9,7 @@ import { broadcastToKitchen } from "@/lib/realtime-broadcast";
 import { generateOrderCode } from "@/lib/order-code";
 import { verifyTableToken } from "@/lib/table-token";
 import { generateOrderTrackingToken, verifyOrderTrackingToken } from "@/lib/order-tracking-token";
+import { missingServiceRoleInProduction } from "@/lib/server-config";
 
 
 const uuidPattern =
@@ -33,6 +34,8 @@ function optionalText(value: unknown, maxLength: number): string | null | undefi
 
 export async function POST(request: Request) {
   try {
+    const configurationError = missingServiceRoleInProduction("Ordering");
+    if (configurationError) return NextResponse.json({ error: configurationError }, { status: 500 });
     const rate = await consumeRateLimit(request, "guest-order", 30, 300);
     if (rate !== "allowed") {
       return NextResponse.json(
@@ -408,6 +411,8 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const configurationError = missingServiceRoleInProduction("Order tracking");
+  if (configurationError) return NextResponse.json({ error: configurationError }, { status: 500 });
   const url = new URL(request.url);
   const orderId = url.searchParams.get("orderId");
   const trackingToken = url.searchParams.get("trackingToken");

@@ -5,6 +5,7 @@ import { consumeRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@supabase/supabase-js";
 import { verifyStaffPin } from "@/lib/staff-pin";
 import { signStaffSessionPayload } from "@/lib/admin-auth";
+import { missingServiceRoleInProduction } from "@/lib/server-config";
 
 // In-memory lockout cache to safeguard against rapid brute-force attacks across all environments
 type PinAttemptTracker = {
@@ -14,6 +15,8 @@ type PinAttemptTracker = {
 const pinAttemptStore = new Map<string, PinAttemptTracker>();
 
 export async function POST(request: Request) {
+  const configurationError = missingServiceRoleInProduction("Kitchen sign-in");
+  if (configurationError) return NextResponse.json({ error: configurationError }, { status: 500 });
   let body: unknown;
   try {
     body = await request.json();
@@ -71,7 +74,7 @@ export async function POST(request: Request) {
     id: string;
     name: string;
     staff_pin_hash?: string | null;
-    kitchen_pin?: string | null;
+    pin_reset_required?: boolean;
   } | null = null;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -82,25 +85,13 @@ export async function POST(request: Request) {
       const supabase = createClient(supabaseUrl, serviceKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       });
-      // Query both staff_pin_hash and legacy kitchen_pin for graceful backward compatibility
       const initialQuery = await supabase
         .from("restaurants")
-        .select("id, name, staff_pin_hash, kitchen_pin")
+        .select("id, name, staff_pin_hash, pin_reset_required")
         .eq("id", restaurantId)
         .maybeSingle();
 
-      let data = initialQuery.data;
-      const error = initialQuery.error;
-
-      if (error && (error.code === "42703" || error.message?.includes("staff_pin_hash"))) {
-        // Migration not yet applied to live DB; fallback to legacy kitchen_pin column
-        const fallback = await supabase
-          .from("restaurants")
-          .select("id, name, kitchen_pin")
-          .eq("id", restaurantId)
-          .maybeSingle();
-        data = fallback.data ? ({ ...fallback.data, staff_pin_hash: null } as unknown as typeof data) : null;
-      }
+      const data = initialQuery.data;
 
       if (data) {
         const row = data as Record<string, unknown>;
@@ -108,7 +99,7 @@ export async function POST(request: Request) {
           id: row.id as string,
           name: row.name as string,
           staff_pin_hash: (row.staff_pin_hash as string) || null,
-          kitchen_pin: (row.kitchen_pin as string) || null,
+          pin_reset_required: row.pin_reset_required === true,
         };
       }
     } catch (e) {
@@ -125,7 +116,7 @@ export async function POST(request: Request) {
         id: demo.restaurant.id,
         name: demo.restaurant.name,
         staff_pin_hash: null,
-        kitchen_pin: (demo.restaurant as Record<string, unknown>).kitchenPin as string || null,
+        pin_reset_required: false,
       };
     }
   }
@@ -135,10 +126,13 @@ export async function POST(request: Request) {
   }
 
   // If no PIN has been set for this restaurant, block staff login
+  if (matchedRestaurant.pin_reset_required) {
+    return NextResponse.json({ error: "Ask the owner to set a staff PIN in Admin → Staff PIN." }, { status: 403 });
+  }
   const hasConfiguredPin = Boolean(matchedRestaurant.staff_pin_hash);
   if (!hasConfiguredPin) {
     return NextResponse.json(
-      { error: "Ask the owner to set a staff PIN in Admin." },
+      { error: "Ask the owner to set a staff PIN in Admin → Staff PIN." },
       { status: 403 },
     );
   }

@@ -28,6 +28,7 @@ export type TrackedOrder = {
 
 interface LiveOrderTrackerProps {
   orderId: string;
+  trackingToken?: string;
   restaurantId: string;
   tableCode: string;
   tableLabel: string;
@@ -38,7 +39,7 @@ interface LiveOrderTrackerProps {
 
 const STORAGE_KEY_PREFIX = "tabletap_recent_order_";
 
-export function getPersistedOrder(restaurantId: string): { orderId: string; timestamp: number } | null {
+export function getPersistedOrder(restaurantId: string): { orderId: string; trackingToken?: string; timestamp: number } | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(`${STORAGE_KEY_PREFIX}${restaurantId}`);
@@ -55,12 +56,12 @@ export function getPersistedOrder(restaurantId: string): { orderId: string; time
   }
 }
 
-export function persistOrder(restaurantId: string, orderId: string): void {
+export function persistOrder(restaurantId: string, orderId: string, trackingToken?: string): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(
       `${STORAGE_KEY_PREFIX}${restaurantId}`,
-      JSON.stringify({ orderId, timestamp: Date.now() }),
+      JSON.stringify({ orderId, trackingToken, timestamp: Date.now() }),
     );
   } catch {
     // Ignore storage quota errors
@@ -86,6 +87,7 @@ function currency(amount: number) {
 
 export default function LiveOrderTracker({
   orderId,
+  trackingToken,
   restaurantId,
   tableLabel,
   initialOrder,
@@ -105,7 +107,7 @@ export default function LiveOrderTracker({
 
   const fetchOrder = useCallback(async (): Promise<TrackedOrder | null> => {
     try {
-      const res = await fetch(`/api/orders?orderId=${orderId}`, {
+      const res = await fetch(`/api/orders?orderId=${orderId}&trackingToken=${encodeURIComponent(trackingToken || "")}`, {
         cache: "no-store",
       });
       if (res.ok) {
@@ -116,7 +118,7 @@ export default function LiveOrderTracker({
       console.warn("Could not fetch tracked order:", err);
     }
     return null;
-  }, [orderId]);
+  }, [orderId, trackingToken]);
 
   // Gentle polling fallback (12s) when broadcast drops
   useEffect(() => {
@@ -173,9 +175,9 @@ export default function LiveOrderTracker({
   // Persist order in localStorage
   useEffect(() => {
     if (orderId && restaurantId) {
-      persistOrder(restaurantId, orderId);
+      persistOrder(restaurantId, orderId, trackingToken);
     }
-  }, [orderId, restaurantId]);
+  }, [orderId, restaurantId, trackingToken]);
 
   // Clean up storage if order is completed / served for a while
   useEffect(() => {

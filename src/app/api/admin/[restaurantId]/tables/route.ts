@@ -391,7 +391,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
   const input = body as Record<string, unknown>;
   const id = typeof input.id === "string" ? input.id : "";
-  const updates: { table_number?: string; is_active?: boolean } = {};
+  const updates: { table_number?: string; is_active?: boolean; unique_code?: string } = {};
   if (typeof input.tableNumber === "string") {
     const tableNumber = input.tableNumber.trim();
     if (!tableNumber) {
@@ -403,6 +403,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     updates.table_number = tableNumber;
   }
   if (typeof input.isActive === "boolean") updates.is_active = input.isActive;
+  if (input.action === "regenerate-qr") updates.unique_code = createUniqueCode();
   if (!id || Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Choose a table and valid changes." }, { status: 400 });
   }
@@ -413,6 +414,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (!table) return NextResponse.json({ error: "Table not found." }, { status: 404 });
     if (updates.table_number !== undefined) table.table_number = updates.table_number;
     if (updates.is_active !== undefined) table.is_active = updates.is_active;
+    if (updates.unique_code !== undefined) table.unique_code = updates.unique_code;
     table.updated_at = new Date().toISOString();
     const res = NextResponse.json({ table });
     return saveDemoTables(res, restaurantId, demoList);

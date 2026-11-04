@@ -5,10 +5,22 @@ alter table public.orders add column if not exists idempotency_key uuid;
 create unique index if not exists orders_restaurant_idempotency_key_idx
   on public.orders (restaurant_id, idempotency_key) where idempotency_key is not null;
 
--- Eliminate default/legacy plaintext staff PINs. Existing plaintext values must be reset by an owner.
+-- Run scripts/convert-staff-pins.ts on staging first. This migration refuses to
+-- remove the legacy column until every usable PIN has a scrypt replacement.
 alter table public.restaurants alter column kitchen_pin drop default;
-update public.restaurants set kitchen_pin = null
-  where kitchen_pin is not null and kitchen_pin not like 'scrypt:%';
+do $$
+begin
+  if exists (
+    select 1 from public.restaurants
+    where kitchen_pin is not null
+      and kitchen_pin <> '1234'
+      and kitchen_pin not like 'scrypt:%'
+      and coalesce(staff_pin_hash, '') not like 'scrypt:%'
+  ) then
+    raise exception 'Refusing to drop kitchen_pin: run convert-staff-pins.ts first';
+  end if;
+end $$;
+alter table public.restaurants drop column if exists kitchen_pin;
 
 revoke all on public.tables from anon;
 revoke all on public.guest_links from anon;

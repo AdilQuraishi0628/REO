@@ -8,6 +8,9 @@ This document provides a transparent audit of features that are intentionally ex
 - Live end-to-end security tests were not run: this workspace does not have a disposable Supabase/Vercel deployment configured for them.
 - SEC-2 idempotency index is supplied in the migration, but the order RPC must be upgraded to accept and enforce a client idempotency key before that guarantee can be claimed.
 - CSP tightening and the full SECURITY DEFINER guest resolver remain open.
+- The independent end-to-end security suite requires a disposable staging Supabase project and is not verified locally. Its existing script must not target production.
+- `convert-staff-pins.ts` requires the preparatory `pin_reset_required` migration on staging before execution. No PIN conversion has been run in this workspace.
+- True order-RPC idempotency and a SECURITY DEFINER guest resolver remain unimplemented; do not mark SEC-2/SEC-4 verified.
 
 ---
 

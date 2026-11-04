@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
   const { data: restaurant, error } = await context.serviceClient
     .from("restaurants")
-    .select("staff_pin_hash, kitchen_pin")
+    .select("staff_pin_hash, pin_reset_required")
     .eq("id", restaurantId)
     .maybeSingle();
 
@@ -27,7 +27,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   }
 
   const row = (restaurant as unknown) as Record<string, unknown>;
-  const hasPin = Boolean(row.staff_pin_hash || row.kitchen_pin);
+  const hasPin = Boolean(row.staff_pin_hash) && row.pin_reset_required !== true;
 
   return NextResponse.json({ hasPin });
 }
@@ -68,24 +68,13 @@ export async function POST(request: Request, { params }: RouteContext) {
   // Update staff_pin_hash in DB, with fallback if column is not yet migrated
   const updatePayload: Record<string, unknown> = {
     staff_pin_hash: hashedPin,
+    pin_reset_required: false,
   };
 
-  let { error } = await context.serviceClient
+  const { error } = await context.serviceClient
     .from("restaurants")
     .update(updatePayload as never)
     .eq("id", restaurantId);
-
-  // Graceful fallback if staff_pin_hash column is pending migration
-  if (error && /staff_pin_hash/i.test(error.message)) {
-    const fallbackUpdate: Record<string, unknown> = {
-      kitchen_pin: hashedPin,
-    };
-    const retry = await context.serviceClient
-      .from("restaurants")
-      .update(fallbackUpdate as never)
-      .eq("id", restaurantId);
-    error = retry.error;
-  }
 
   if (error) {
     console.error("Could not set staff PIN:", error.message);

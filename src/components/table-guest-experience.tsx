@@ -133,6 +133,7 @@ export default function TableGuestExperience({
   const [restaurant, setRestaurant] = useState(initialRestaurant);
   const [categories, setCategories] = useState<MenuCategory[]>(initialCategories);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [activeTrackingToken, setActiveTrackingToken] = useState<string | null>(null);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -191,6 +192,7 @@ export default function TableGuestExperience({
     const persisted = getPersistedOrder(restaurant.id);
     if (persisted?.orderId) {
       setActiveOrderId(persisted.orderId);
+      setActiveTrackingToken(persisted.trackingToken || null);
     }
   }, [restaurant.id]);
 
@@ -618,13 +620,14 @@ export default function TableGuestExperience({
       setOrderPhone("");
       setOrderNotes("");
       setAction(null);
-      const resObj = result as { order?: { id?: string; order_code?: string } } | null;
+      const resObj = result as { order?: { id?: string; order_code?: string }; trackingToken?: string } | null;
       const orderRef = resObj?.order?.order_code ? ` (${resObj.order.order_code})` : "";
       setOrderSuccess(`Order${orderRef} placed for ${effectiveTableLabel}! Sent straight to the kitchen.`);
 
       if (resObj?.order?.id) {
         setActiveOrderId(resObj.order.id);
-        persistOrder(restaurant.id, resObj.order.id);
+        setActiveTrackingToken(resObj.trackingToken || null);
+        persistOrder(restaurant.id, resObj.order.id, resObj.trackingToken);
       } else {
         setOrderTimelineStep(1);
       }
@@ -974,9 +977,11 @@ export default function TableGuestExperience({
             onCallWaiter={handleCallWaiter}
             onDismiss={() => {
               setActiveOrderId(null);
+              setActiveTrackingToken(null);
               clearPersistedOrder(restaurant.id);
             }}
             orderId={activeOrderId}
+            trackingToken={activeTrackingToken || undefined}
             restaurantId={restaurant.id}
             tableCode={tableCode || ""}
             tableLabel={effectiveTableLabel}
