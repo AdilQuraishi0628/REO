@@ -776,29 +776,33 @@ export default function TableGuestExperience({
         }),
       });
       const responseText = await response.text();
-      let responseBody: unknown = responseText;
-      try {
-        responseBody = JSON.parse(responseText);
-      } catch {
-        // Keep the raw response body available for diagnostics and the error message.
-      }
       if (!response.ok) {
+        const contentType = response.headers.get("content-type") ?? "";
+        let apiMessage: string | null = null;
+        if (/\b(?:application|text)\/(?:[\w.+-]*\+)?json\b/i.test(contentType)) {
+          try {
+            const responseBody: unknown = JSON.parse(responseText);
+            if (
+              typeof responseBody === "object" &&
+              responseBody !== null &&
+              "error" in responseBody &&
+              typeof responseBody.error === "string"
+            ) {
+              apiMessage = responseBody.error;
+            }
+          } catch {
+            // Treat malformed JSON responses like non-JSON errors.
+          }
+        }
         console.error("Feedback API response:", {
           status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseBody,
+          body: responseText.slice(0, 500),
         });
-        const apiMessage =
-          typeof responseBody === "object" &&
-          responseBody !== null &&
-          "error" in responseBody &&
-          typeof responseBody.error === "string"
-            ? responseBody.error
-            : typeof responseBody === "string" && responseBody.trim()
-              ? responseBody
-              : response.statusText || "Request failed";
-        throw new Error(`Feedback failed (${response.status}): ${apiMessage}`);
+        throw new Error(
+          apiMessage
+            ? `Feedback failed (${response.status}): ${apiMessage}`
+            : `Could not send feedback (error ${response.status}). Please try again.`,
+        );
       }
       setFeedbackStatus("sent");
       setFeedbackMsg("Thank you! Your feedback has been shared privately with management.");
