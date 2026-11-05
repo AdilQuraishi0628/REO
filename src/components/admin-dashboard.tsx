@@ -277,6 +277,36 @@ async function parseResponse(response: Response, action?: string) {
   throw new Error(error);
 }
 
+async function parseTableRangeResponse(response: Response) {
+  const responseText = await response.text();
+  const contentType = response.headers.get("content-type") ?? "";
+  let result: unknown = null;
+  if (/\b(?:application|text)\/(?:[\w.+-]*\+)?json\b/i.test(contentType)) {
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      // Treat malformed JSON responses like non-JSON errors.
+    }
+  }
+  if (response.ok) return result;
+  console.error("Table range API response:", {
+    status: response.status,
+    body: responseText.slice(0, 500),
+  });
+  const apiError =
+    typeof result === "object" &&
+    result !== null &&
+    "error" in result &&
+    typeof result.error === "string"
+      ? result.error
+      : null;
+  throw new Error(
+    apiError
+      ? `Could not generate tables (${response.status}): ${apiError}`
+      : `Could not generate tables (error ${response.status}). Please try again.`,
+  );
+}
+
 export default function AdminDashboard({
   restaurants,
   userEmail,
@@ -2740,8 +2770,12 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
     event.preventDefault();
     const start = Number(bulkStart);
     const end = Number(bulkEnd);
-    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) {
       setFormError("Please enter valid start and end numbers.");
+      return;
+    }
+    if (start < 1) {
+      setFormError("Start table number must be at least 1.");
       return;
     }
     if (start > end) {
@@ -2761,7 +2795,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "bulk", start, end, prefix: tablePrefix }),
       });
-      const result = (await parseResponse(response)) as { created: number };
+      const result = (await parseTableRangeResponse(response)) as { created: number };
       setMessage(`${result.created} table(s) generated.`);
       await loadTables();
     } catch (err: unknown) {

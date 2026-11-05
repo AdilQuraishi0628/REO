@@ -110,11 +110,25 @@ async function getAuthorizedContext(restaurantId: string) {
     return { isDemo: true };
   }
 
+  if (!uuidPattern.test(restaurantId)) {
+    return {
+      response: NextResponse.json(
+        { error: "Enter a valid restaurant ID." },
+        { status: 400 },
+      ),
+    };
+  }
+
   const context = await getAdminContext();
   if (!context) {
-    return { isDemo: true };
+    return {
+      response: NextResponse.json(
+        { error: "Sign in to manage dining tables." },
+        { status: 401 },
+      ),
+    };
   }
-  if (!uuidPattern.test(restaurantId) || !canManageRestaurant(context, restaurantId)) {
+  if (!canManageRestaurant(context, restaurantId)) {
     return {
       response: NextResponse.json(
         { error: "You don't have access to this restaurant." },
@@ -173,10 +187,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
       extra: diagnostic,
       tags: { venueId: restaurantId, userId: auth.context?.user?.id, supabaseCode: error.code },
     });
-    return NextResponse.json(
-      { error: `Unable to load restaurant tables from the database: ${error.message} (${error.code || "500"})` },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Could not load restaurant tables." }, { status: 500 });
   }
 
   const tables: TableRow[] = data ?? [];
@@ -204,9 +215,14 @@ export async function POST(request: Request, { params }: RouteContext) {
   // BULK GENERATION
   if (input.action === "bulk") {
     const { start, end } = input;
-    if (typeof start !== "number" || typeof end !== "number" || !Number.isInteger(start) || !Number.isInteger(end)) {
+    if (
+      typeof start !== "number" ||
+      typeof end !== "number" ||
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end)
+    ) {
       return NextResponse.json(
-        { error: "Start and end table numbers must be whole integers." },
+        { error: "Start and end table numbers must be safe whole integers." },
         { status: 400 },
       );
     }
@@ -230,6 +246,15 @@ export async function POST(request: Request, { params }: RouteContext) {
       );
     }
 
+    if (
+      input.prefix !== undefined &&
+      (typeof input.prefix !== "string" || input.prefix.length > 20)
+    ) {
+      return NextResponse.json(
+        { error: "Table name prefix must be text with up to 20 characters." },
+        { status: 400 },
+      );
+    }
     const prefix = typeof input.prefix === "string" ? input.prefix : "Table ";
 
     if (auth.isDemo) {
@@ -280,6 +305,9 @@ export async function POST(request: Request, { params }: RouteContext) {
         extra: diagnostic,
         tags: { venueId: restaurantId, userId: auth.context?.user?.id },
       });
+      if (error.code === "23503") {
+        return NextResponse.json({ error: "Restaurant not found." }, { status: 404 });
+      }
       return NextResponse.json({ error: "Could not create the requested tables." }, { status: 500 });
     }
     return NextResponse.json({ tables: data ?? [], created: data?.length ?? 0 }, { status: 201 });
