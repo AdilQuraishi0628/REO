@@ -55,17 +55,20 @@ export async function POST(request: Request) {
         ? submission.tableId
         : undefined;
 
-  if (
-    !uuidPattern.test(restaurantId) ||
-    !fullName ||
-    fullName.length > 100 ||
-    tableId === undefined ||
-    (tableId !== null && !uuidPattern.test(tableId))
-  ) {
+  if (!uuidPattern.test(restaurantId)) {
     return NextResponse.json(
-      { error: "Enter your name to join the loyalty program." },
+      { error: "Enter a valid restaurant ID to join the loyalty program." },
       { status: 400 },
     );
+  }
+  if (!fullName || fullName.length > 100) {
+    return NextResponse.json(
+      { error: "Enter your name (up to 100 characters) to join the loyalty program." },
+      { status: 400 },
+    );
+  }
+  if (tableId === undefined || (tableId !== null && !uuidPattern.test(tableId))) {
+    return NextResponse.json({ error: "Choose a valid dining table." }, { status: 400 });
   }
   if (!phone) {
     return NextResponse.json(

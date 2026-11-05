@@ -97,7 +97,10 @@ export async function GET(_request: Request, { params }: RouteContext) {
   if (!context) {
     return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   }
-  if (!uuidPattern.test(restaurantId) || !canManageRestaurant(context, restaurantId)) {
+  if (!uuidPattern.test(restaurantId)) {
+    return NextResponse.json({ error: "Enter a valid restaurant ID." }, { status: 400 });
+  }
+  if (!canManageRestaurant(context, restaurantId)) {
     return NextResponse.json({ error: "You don't have access to this restaurant." }, { status: 403 });
   }
 
@@ -227,6 +230,52 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   const input = body as Record<string, unknown>;
+
+  if ("loyaltyEnabled" in input && typeof input.loyaltyEnabled !== "boolean") {
+    return NextResponse.json({ error: "Choose whether the loyalty program is enabled." }, { status: 400 });
+  }
+  if (
+    "loyaltyType" in input &&
+    input.loyaltyType !== "stamps" &&
+    input.loyaltyType !== "points"
+  ) {
+    return NextResponse.json({ error: "Choose either a stamp or points loyalty program." }, { status: 400 });
+  }
+  if (
+    "loyaltyRewardGoal" in input &&
+    (typeof input.loyaltyRewardGoal !== "number" ||
+      !Number.isInteger(input.loyaltyRewardGoal) ||
+      input.loyaltyRewardGoal < 2 ||
+      input.loyaltyRewardGoal > 20)
+  ) {
+    return NextResponse.json({ error: "Set the stamp reward goal between 2 and 20." }, { status: 400 });
+  }
+  if (
+    "loyaltyRewardDescription" in input &&
+    (typeof input.loyaltyRewardDescription !== "string" ||
+      !input.loyaltyRewardDescription.trim() ||
+      input.loyaltyRewardDescription.trim().length > 120)
+  ) {
+    return NextResponse.json({ error: "Enter a reward description up to 120 characters." }, { status: 400 });
+  }
+  if (
+    "loyaltyPointsPerAmount" in input &&
+    (typeof input.loyaltyPointsPerAmount !== "number" ||
+      !Number.isInteger(input.loyaltyPointsPerAmount) ||
+      input.loyaltyPointsPerAmount < 1 ||
+      input.loyaltyPointsPerAmount > 100)
+  ) {
+    return NextResponse.json({ error: "Set points earned per ₹100 between 1 and 100." }, { status: 400 });
+  }
+  if (
+    "loyaltyPointsGoal" in input &&
+    (typeof input.loyaltyPointsGoal !== "number" ||
+      !Number.isInteger(input.loyaltyPointsGoal) ||
+      input.loyaltyPointsGoal < 10 ||
+      input.loyaltyPointsGoal > 10000)
+  ) {
+    return NextResponse.json({ error: "Set the points reward goal between 10 and 10,000." }, { status: 400 });
+  }
 
   // Handle demo mode updates
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {

@@ -34,21 +34,25 @@ export async function GET(request: Request, { params }: RouteContext) {
   try {
     const { restaurantId } = await params;
 
-    // 1. Demo fallback
+    if (!uuidPattern.test(restaurantId)) {
+      return NextResponse.json({ error: "Enter a valid restaurant ID." }, { status: 400 });
+    }
+
     if (
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.SUPABASE_SERVICE_ROLE_KEY ||
       restaurantId.startsWith("00000000-0000-4000-8000-")
     ) {
       return NextResponse.json({ members: demoMembers, total: demoMembers.length, page: 0, pageSize: 50 });
     }
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: "Loyalty service is not configured." }, { status: 503 });
+    }
 
     const context = await getAdminContext();
     if (!context) {
-      return NextResponse.json({ members: demoMembers, total: demoMembers.length, page: 0, pageSize: 50 });
+      return NextResponse.json({ error: "Sign in to view loyalty members." }, { status: 401 });
     }
 
-    if (!uuidPattern.test(restaurantId) || !canManageRestaurant(context, restaurantId)) {
+    if (!canManageRestaurant(context, restaurantId)) {
       return NextResponse.json({ error: "You don't have access to this restaurant." }, { status: 403 });
     }
 
@@ -74,14 +78,13 @@ export async function GET(request: Request, { params }: RouteContext) {
     const { data, count, error } = await query.range(page * pageSize, page * pageSize + pageSize - 1);
 
     if (error) {
-      console.warn("Could not load loyalty members from Supabase:", error.message);
-      return NextResponse.json({ members: [], total: 0, page, pageSize });
+      console.error("Could not load loyalty members from Supabase:", error.message);
+      return NextResponse.json({ error: "Could not load loyalty members." }, { status: 500 });
     }
     return NextResponse.json({ members: data ?? [], total: count ?? 0, page, pageSize });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Could not load loyalty members.";
-    console.error("GET /api/admin/[restaurantId]/loyalty error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("GET /api/admin/[restaurantId]/loyalty error:", err);
+    return NextResponse.json({ error: "Could not load loyalty members." }, { status: 500 });
   }
 }
 
@@ -89,19 +92,24 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const { restaurantId } = await params;
 
+    if (!uuidPattern.test(restaurantId)) {
+      return NextResponse.json({ error: "Enter a valid restaurant ID." }, { status: 400 });
+    }
+
     if (
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.SUPABASE_SERVICE_ROLE_KEY ||
       restaurantId.startsWith("00000000-0000-4000-8000-")
     ) {
       return NextResponse.json({
         member: { id: "mem-demo", stamps: 5, reward_goal: 5 },
       });
     }
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: "Loyalty service is not configured." }, { status: 503 });
+    }
 
     const context = await getAdminContext();
     if (!context) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
-    if (!uuidPattern.test(restaurantId) || !canManageRestaurant(context, restaurantId)) {
+    if (!canManageRestaurant(context, restaurantId)) {
       return NextResponse.json({ error: "You don't have access to this restaurant." }, { status: 403 });
     }
 
@@ -122,28 +130,30 @@ export async function POST(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Choose a valid loyalty member." }, { status: 400 });
     }
 
-    // Try RPC first
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (context.serviceClient as any).rpc("admin_add_loyalty_stamp", {
-        p_restaurant_id: restaurantId,
-        p_member_id: memberId,
-      });
-      if (!error && data?.length) {
-        return NextResponse.json({ member: data[0] });
-      }
-    } catch {
-      // RPC may not exist, fallback to direct increment
+    // Try RPC first.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rpcData, error: rpcError } = await (context.serviceClient as any).rpc("admin_add_loyalty_stamp", {
+      p_restaurant_id: restaurantId,
+      p_member_id: memberId,
+    });
+    if (!rpcError && rpcData?.length) {
+      return NextResponse.json({ member: rpcData[0] });
+    }
+    if (rpcError) {
+      console.error("Could not award loyalty stamp through RPC:", rpcError.message);
     }
 
-    // Fallback direct increment
-    const { data: currentMember } = await context.serviceClient
+    const { data: currentMember, error: memberError } = await context.serviceClient
       .from("loyalty_members")
       .select("id, stamps, reward_goal")
       .eq("restaurant_id", restaurantId)
       .eq("id", memberId)
       .maybeSingle();
 
+    if (memberError) {
+      console.error("Could not load loyalty member for stamp award:", memberError.message);
+      return NextResponse.json({ error: "Could not load this loyalty member." }, { status: 500 });
+    }
     if (!currentMember) {
       return NextResponse.json({ error: "Member not found." }, { status: 404 });
     }
@@ -158,12 +168,13 @@ export async function POST(request: Request, { params }: RouteContext) {
       .single();
 
     if (updateErr) {
-      return NextResponse.json({ error: updateErr.message || "Could not award stamp." }, { status: 400 });
+      console.error("Could not update loyalty stamp:", updateErr.message);
+      return NextResponse.json({ error: "Could not award a stamp to this member." }, { status: 500 });
     }
 
     return NextResponse.json({ member: updatedMember });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Could not add loyalty stamp.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("POST /api/admin/[restaurantId]/loyalty error:", err);
+    return NextResponse.json({ error: "Could not award a loyalty stamp." }, { status: 500 });
   }
 }

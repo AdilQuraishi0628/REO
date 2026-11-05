@@ -234,7 +234,37 @@ const MENU_TAG_PRESETS = [
   { label: "Jain", color: "#4A7C59" },
 ];
 
-async function parseResponse(response: Response) {
+async function parseResponse(response: Response, action?: string) {
+  if (action) {
+    const responseText = await response.text();
+    const contentType = response.headers.get("content-type") ?? "";
+    let result: unknown = null;
+    if (/\b(?:application|text)\/(?:[\w.+-]*\+)?json\b/i.test(contentType)) {
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        // Treat malformed JSON responses like non-JSON errors.
+      }
+    }
+    if (response.ok) return result;
+    console.error("Loyalty settings API response:", {
+      status: response.status,
+      body: responseText.slice(0, 500),
+    });
+    const error =
+      typeof result === "object" &&
+      result !== null &&
+      "error" in result &&
+      typeof result.error === "string"
+        ? result.error
+        : null;
+    throw new Error(
+      error
+        ? `Could not ${action} (${response.status}): ${error}`
+        : `Could not ${action} (error ${response.status}). Please try again.`,
+    );
+  }
+
   const result: unknown = await response.json();
   if (response.ok) return result;
   const error =
@@ -483,7 +513,12 @@ export default function AdminDashboard({
     onRefetchNeeded: loadData,
   });
 
-  async function performRequest(url: string, body: unknown, method = "POST") {
+  async function performRequest(
+    url: string,
+    body: unknown,
+    method = "POST",
+    errorAction?: string,
+  ) {
     setIsBusy(true);
     setError("");
     setMessage("");
@@ -493,7 +528,7 @@ export default function AdminDashboard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const result = await parseResponse(response);
+      const result = await parseResponse(response, errorAction);
       setMessage("Changes saved successfully.");
       setTimeout(() => setMessage(""), 4000);
       return result;
@@ -507,7 +542,10 @@ export default function AdminDashboard({
   }
 
   // Update restaurant settings (optimistic update with rollback)
-  async function updateRestaurantSettings(partialPayload: Record<string, unknown>) {
+  async function updateRestaurantSettings(
+    partialPayload: Record<string, unknown>,
+    errorAction?: string,
+  ) {
     const prevRestaurant = data?.restaurant;
     if (prevRestaurant) {
       setData((prev) =>
@@ -523,7 +561,7 @@ export default function AdminDashboard({
       );
     }
     try {
-      return await performRequest(`/api/admin/${restaurantId}`, partialPayload, "PATCH");
+      return await performRequest(`/api/admin/${restaurantId}`, partialPayload, "PATCH", errorAction);
     } catch {
       if (prevRestaurant) {
         setData((prev) => (prev ? { ...prev, restaurant: prevRestaurant } : prev));
@@ -1069,7 +1107,7 @@ export default function AdminDashboard({
           {!isLoading && data && section === "loyalty" && (
             <LoyaltySettingsSection
               isBusy={isBusy}
-              onSave={updateRestaurantSettings}
+              onSave={(payload) => updateRestaurantSettings(payload, "save loyalty rules and rewards")}
               restaurant={data.restaurant}
               restaurantId={restaurantId}
             />

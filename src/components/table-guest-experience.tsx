@@ -834,12 +834,44 @@ export default function TableGuestExperience({
           phone: loyaltyPhone,
         }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not join loyalty program");
+      const responseText = await response.text();
+      let data: unknown = null;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (/\b(?:application|text)\/(?:[\w.+-]*\+)?json\b/i.test(contentType)) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          // Treat malformed JSON responses like non-JSON errors.
+        }
+      }
+      if (!response.ok) {
+        console.error("Loyalty enrollment API response:", {
+          status: response.status,
+          body: responseText.slice(0, 500),
+        });
+        const apiMessage =
+          typeof data === "object" &&
+          data !== null &&
+          "error" in data &&
+          typeof data.error === "string"
+            ? data.error
+            : null;
+        throw new Error(
+          apiMessage
+            ? `Could not enroll in loyalty program (${response.status}): ${apiMessage}`
+            : `Could not enroll in loyalty program (error ${response.status}). Please try again.`,
+        );
+      }
+      if (typeof data !== "object" || data === null || !("member" in data)) {
+        throw new Error("The loyalty service returned an invalid response.");
+      }
+      const enrollment = data as {
+        member: { fullName?: string; stamps?: number; rewardGoal?: number };
+      };
       setLoyaltyMember({
-        fullName: data.member?.fullName || loyaltyName || "Valued Guest",
-        stamps: data.member?.stamps ?? 1,
-        rewardGoal: data.member?.rewardGoal ?? restaurant.loyaltyRewardGoal ?? 5,
+        fullName: enrollment.member.fullName || loyaltyName || "Valued Guest",
+        stamps: enrollment.member.stamps ?? 1,
+        rewardGoal: enrollment.member.rewardGoal ?? restaurant.loyaltyRewardGoal ?? 5,
       });
       setLoyaltyStatus("enrolled");
       setLoyaltyMsg("Welcome to our rewards program!");

@@ -52,6 +52,36 @@ async function responseData(response: Response) {
   throw new Error(message);
 }
 
+async function loyaltyResponseData(response: Response, action: string) {
+  const responseText = await response.text();
+  const contentType = response.headers.get("content-type") ?? "";
+  let data: unknown = null;
+  if (/\b(?:application|text)\/(?:[\w.+-]*\+)?json\b/i.test(contentType)) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      // Treat malformed JSON responses like non-JSON errors.
+    }
+  }
+  if (response.ok) return data;
+  console.error("Admin loyalty API response:", {
+    status: response.status,
+    body: responseText.slice(0, 500),
+  });
+  const apiMessage =
+    typeof data === "object" &&
+    data !== null &&
+    "error" in data &&
+    typeof data.error === "string"
+      ? data.error
+      : null;
+  throw new Error(
+    apiMessage
+      ? `Could not ${action} (${response.status}): ${apiMessage}`
+      : `Could not ${action} (error ${response.status}). Please try again.`,
+  );
+}
+
 function PageHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="admin-page-heading">
@@ -298,7 +328,7 @@ export function LoyaltyAdminSection({ restaurantId }: { restaurantId: string }) 
         `/api/admin/${restaurantId}/loyalty?page=${page}&search=${encodeURIComponent(search.trim())}`,
         { cache: "no-store", signal },
       );
-      const result = await responseData(response) as {
+      const result = await loyaltyResponseData(response, "load loyalty members") as {
         members: LoyaltyMember[];
         total: number;
       };
@@ -327,7 +357,7 @@ export function LoyaltyAdminSection({ restaurantId }: { restaurantId: string }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberId: member.id }),
       });
-      await responseData(response);
+      await loyaltyResponseData(response, "add a loyalty stamp");
       trackProductEvent("manual_loyalty_stamp_awarded");
       setMessage(`Added a stamp to ${member.full_name}'s card.`);
       await loadMembers();

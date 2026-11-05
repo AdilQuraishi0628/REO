@@ -65,19 +65,39 @@ export default function LoyaltyProgram({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ restaurantId, fullName, phone: normalizedPhone, tableId }),
       });
-      const result: unknown = await response.json();
+      const responseText = await response.text();
+      let result: unknown = null;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (/\b(?:application|text)\/(?:[\w.+-]*\+)?json\b/i.test(contentType)) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          // Treat malformed JSON responses like non-JSON errors.
+        }
+      }
       if (!response.ok) {
-        const message =
+        console.error("Loyalty enrollment API response:", {
+          status: response.status,
+          body: responseText.slice(0, 500),
+        });
+        const apiMessage =
           typeof result === "object" &&
           result !== null &&
           "error" in result &&
           typeof result.error === "string"
             ? result.error
-            : "We couldn't create your loyalty card. Please try again.";
-        setError(message);
+            : null;
+        setError(
+          apiMessage
+            ? `Could not enroll in loyalty program (${response.status}): ${apiMessage}`
+            : `Could not enroll in loyalty program (error ${response.status}). Please try again.`,
+        );
         return;
       }
 
+      if (typeof result !== "object" || result === null || !("member" in result)) {
+        throw new Error("The loyalty service returned an invalid response.");
+      }
       const enrollment = result as EnrollmentResult;
       setMember(enrollment.member);
       trackProductEvent("loyalty_joined");
