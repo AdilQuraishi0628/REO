@@ -775,7 +775,31 @@ export default function TableGuestExperience({
           phone: feedbackPhone,
         }),
       });
-      if (!response.ok) throw new Error("Could not send feedback");
+      const responseText = await response.text();
+      let responseBody: unknown = responseText;
+      try {
+        responseBody = JSON.parse(responseText);
+      } catch {
+        // Keep the raw response body available for diagnostics and the error message.
+      }
+      if (!response.ok) {
+        console.error("Feedback API response:", {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: responseBody,
+        });
+        const apiMessage =
+          typeof responseBody === "object" &&
+          responseBody !== null &&
+          "error" in responseBody &&
+          typeof responseBody.error === "string"
+            ? responseBody.error
+            : typeof responseBody === "string" && responseBody.trim()
+              ? responseBody
+              : response.statusText || "Request failed";
+        throw new Error(`Feedback failed (${response.status}): ${apiMessage}`);
+      }
       setFeedbackStatus("sent");
       setFeedbackMsg("Thank you! Your feedback has been shared privately with management.");
       setTimeout(() => {
@@ -783,9 +807,11 @@ export default function TableGuestExperience({
         setFeedbackStatus("idle");
         setFeedbackComment("");
       }, 3000);
-    } catch {
+    } catch (error) {
       setFeedbackStatus("error");
-      setFeedbackMsg("Could not submit feedback. Please try again.");
+      setFeedbackMsg(
+        error instanceof Error ? error.message : "Could not submit feedback. Please try again.",
+      );
     }
   }
 

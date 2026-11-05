@@ -54,6 +54,10 @@ export async function POST(request: Request) {
   const submission = body as Record<string, unknown>;
   const restaurantId =
     typeof submission.restaurantId === "string" ? submission.restaurantId : "";
+  if (!uuidPattern.test(restaurantId)) {
+    return NextResponse.json({ error: "A valid restaurant ID is required." }, { status: 400 });
+  }
+
   const rating = submission.rating;
   const comment = optionalText(submission.comment, 2000);
   const guestName = optionalText(submission.guestName, 100);
@@ -70,7 +74,6 @@ export async function POST(request: Request) {
         : undefined;
 
   if (
-    !uuidPattern.test(restaurantId) ||
     typeof rating !== "number" ||
     !Number.isInteger(rating) ||
     rating < 1 ||
@@ -111,9 +114,8 @@ export async function POST(request: Request) {
   });
   const { data: restaurant, error: restaurantError } = await supabase
     .from("restaurants")
-    .select("id")
+    .select("id, is_published")
     .eq("id", restaurantId)
-    .eq("is_published", true)
     .maybeSingle();
   if (restaurantError) {
     console.error("Could not validate feedback restaurant:", restaurantError.message);
@@ -123,7 +125,13 @@ export async function POST(request: Request) {
     );
   }
   if (!restaurant) {
-    return NextResponse.json({ error: "This restaurant is not available." }, { status: 404 });
+    return NextResponse.json({ error: "Restaurant not found." }, { status: 404 });
+  }
+  if (!restaurant.is_published) {
+    return NextResponse.json(
+      { error: "This restaurant is not currently accepting feedback." },
+      { status: 404 },
+    );
   }
 
   let verifiedTableLabel = tableLabel;
