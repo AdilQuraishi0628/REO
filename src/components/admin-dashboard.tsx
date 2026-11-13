@@ -2654,6 +2654,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
   const [formError, setFormError] = useState("");
   const [message, setMessage] = useState("");
   const [downloadingTableId, setDownloadingTableId] = useState<string | null>(null);
+  const [tableToDelete, setTableToDelete] = useState<ManagedTable | null>(null);
   const [qrTestResults, setQrTestResults] = useState<
     Record<string, { status: "testing" | "pass" | "fail"; message: string }>
   >({});
@@ -2838,7 +2839,6 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
   }
 
   async function deleteTable(id: string) {
-    if (!window.confirm("Delete this table? Its QR code and NFC tag will stop working.")) return;
     setIsBusy(true);
     try {
       const response = await fetch(`/api/admin/${restaurantId}/tables?tableId=${encodeURIComponent(id)}`, {
@@ -3222,7 +3222,7 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
                     <button
                       aria-label={`Delete ${table.table_number}`}
                       className="table-delete-icon"
-                      onClick={() => void deleteTable(table.id)}
+                      onClick={() => setTableToDelete(table)}
                       title="Delete Table"
                       type="button"
                     >
@@ -3235,6 +3235,81 @@ function TablesAdminSection({ restaurantId }: { restaurantId: string }) {
           )}
         </div>
       </div>
+
+      {/* Confirmation modal before deleting table */}
+      {tableToDelete && (
+        <div
+          className="admin-modal-backdrop"
+          onClick={() => setTableToDelete(null)}
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "16px",
+          }}
+        >
+          <div
+            aria-modal="true"
+            className="admin-confirm-dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            style={{
+              background: "#FFFFFF",
+              borderRadius: "14px",
+              padding: "24px",
+              maxWidth: "420px",
+              width: "100%",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: "1.15rem", color: "var(--tt-ink, #2A1A1D)" }}>
+              Delete {tableToDelete.table_number}?
+            </h3>
+            <p style={{ margin: 0, fontSize: "0.9rem", color: "#6B5E55", lineHeight: 1.5 }}>
+              This table&apos;s digital menu link, QR code, and NFC tag will stop working immediately for diners.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+              <button
+                type="button"
+                className="admin-btn secondary"
+                onClick={() => setTableToDelete(null)}
+                disabled={isBusy}
+              >
+                Keep Table
+              </button>
+              <button
+                type="button"
+                className="admin-btn danger"
+                style={{
+                  background: "#C62828",
+                  color: "#FFFFFF",
+                  border: "none",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                disabled={isBusy}
+                onClick={async () => {
+                  const id = tableToDelete.id;
+                  setTableToDelete(null);
+                  await deleteTable(id);
+                }}
+              >
+                {isBusy ? "Deleting..." : "Delete Table"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
