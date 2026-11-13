@@ -3447,72 +3447,39 @@ function LoyaltySettingsSection({
 function ReviewsSection({
   restaurant,
   restaurantId,
-  isBusy,
-  onSave,
 }: {
   restaurant: AdminDashboardData["restaurant"];
   restaurantId: string;
-  isBusy: boolean;
-  onSave: (payload: Record<string, unknown>) => Promise<unknown>;
+  isBusy?: boolean;
+  onSave?: (payload: Record<string, unknown>) => Promise<unknown>;
 }) {
-  const [googleReviewUrl, setGoogleReviewUrl] = useState(
-    restaurant.google_review_url ?? "",
-  );
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    await onSave({
-      googleReviewUrl: googleReviewUrl.trim() || null,
-    });
-  }
-
   return (
     <div className="admin-reviews-layout">
-      {/* 1. Google Review Setup Card */}
-      <div className="admin-panel-card">
-        <div className="panel-header">
-          <div>
-            <span className="panel-eyebrow">Raipur Reputation</span>
-            <h2>Google Review Link &amp; Rating Booster</h2>
-          </div>
-          <p className="panel-desc">
-            Direct your happy diners straight to your Google Maps listing to leave 5-star ratings.
-          </p>
-        </div>
-
-        <form className="admin-form-flow" onSubmit={handleSubmit}>
-          <label className="admin-label">
-            Your Google Maps Review Shortlink
-            <div className="input-with-btn">
-              <input
-                className="admin-input"
-                onChange={(e) => setGoogleReviewUrl(e.target.value)}
-                placeholder="https://g.page/r/... or https://maps.google.com/..."
-                type="url"
-                value={googleReviewUrl}
-              />
-              {googleReviewUrl && (
-                <a
-                  className="admin-btn secondary"
-                  href={googleReviewUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Test Link ↗
-                </a>
-              )}
+      {/* 1. Google Review Status Card */}
+      <div className="admin-panel-card" style={{ marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: "#E5A93C", display: "inline-flex" }}><Icon name="star" size={20} /></span>
+            <div>
+              <strong style={{ display: "block", fontSize: "15px" }}>Google Maps Review Redirect</strong>
+              <span style={{ fontSize: "13px", color: "#6B5E55" }}>
+                {restaurant.google_review_url
+                  ? "Active: Diners leaving positive ratings are prompted to write a Google review."
+                  : "Not configured. Set your Google Review URL in Restaurant Profile to boost your venue rating."}
+              </span>
             </div>
-            <span className="field-hint">
-              Find this in your Google Business Profile under &apos;Ask for reviews&apos;.
-            </span>
-          </label>
-
-          <div className="form-submit-row">
-            <button className="admin-btn primary" disabled={isBusy} type="submit">
-              {isBusy ? "Saving..." : "Update Google Review Link"}
-            </button>
           </div>
-        </form>
+          {restaurant.google_review_url && (
+            <a
+              className="admin-btn secondary small"
+              href={restaurant.google_review_url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Test Link ↗
+            </a>
+          )}
+        </div>
       </div>
 
       {/* 2. Internal Feedback Log */}
