@@ -120,6 +120,7 @@ export default function KitchenDisplay({
   const [wakeLockActive, setWakeLockActive] = useState<boolean>(false);
   const [wakeLockSupported, setWakeLockSupported] = useState<boolean>(true);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [confirmingCancelOrderId, setConfirmingCancelOrderId] = useState<string | null>(null);
 
   // Initialize sound preference and audio unlock status
   useEffect(() => {
@@ -1040,14 +1041,51 @@ export default function KitchenDisplay({
                       </button>
                     )}
                     {["pending", "preparing", "ready"].includes(order.status) && (
-                      <button
-                        className="kitchen-cancel-btn"
-                        disabled={busyOrderId === order.id}
-                        onClick={() => void changeStatus(order, "cancelled")}
-                        type="button"
-                      >
-                        Cancel
-                      </button>
+                      confirmingCancelOrderId === order.id ? (
+                        <div className="kitchen-cancel-confirm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--tt-burgundy, #722F37)" }}>
+                            Cancel this order?
+                          </span>
+                          <button
+                            className="kitchen-cancel-confirm-btn keep"
+                            disabled={busyOrderId === order.id}
+                            onClick={() => setConfirmingCancelOrderId(null)}
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "0.8rem",
+                              borderRadius: "6px",
+                              border: "1px solid var(--tt-border, #D5C7B7)",
+                              background: "#FFFFFF",
+                              color: "var(--tt-ink, #2A1A1D)",
+                              cursor: "pointer",
+                            }}
+                            type="button"
+                          >
+                            Keep
+                          </button>
+                          <button
+                            className="kitchen-cancel-btn"
+                            disabled={busyOrderId === order.id}
+                            onClick={() => {
+                              setConfirmingCancelOrderId(null);
+                              void changeStatus(order, "cancelled");
+                            }}
+                            style={{ padding: "4px 8px", fontSize: "0.8rem" }}
+                            type="button"
+                          >
+                            {busyOrderId === order.id ? "Saving…" : "Cancel order"}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="kitchen-cancel-btn"
+                          disabled={busyOrderId === order.id}
+                          onClick={() => setConfirmingCancelOrderId(order.id)}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      )
                     )}
                   </div>
                 </footer>
