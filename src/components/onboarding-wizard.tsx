@@ -502,19 +502,38 @@ export default function OnboardingWizard({ email }: { email: string }) {
 
                 <div>
                   <label className="auth-label" htmlFor="price">
-                    Price (₹)
+                    Price
                   </label>
-                  <input
-                    min="0"
-                    name="price"
-                    id="price"
-                    step="0.01"
-                    type="number"
-                    value={formPrice}
-                    onChange={(e) => setFormPrice(e.target.value)}
-                    placeholder="e.g. 180"
-                    className="auth-f"
-                  />
+                  <div className="auth-fw" style={{ position: "relative" }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        left: "14px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        color: "var(--auth-ink, #2B231E)",
+                        pointerEvents: "none",
+                        lineHeight: 1,
+                      }}
+                    >
+                      ₹
+                    </span>
+                    <input
+                      min="0"
+                      name="price"
+                      id="price"
+                      step="0.01"
+                      type="number"
+                      value={formPrice}
+                      onChange={(e) => setFormPrice(e.target.value)}
+                      placeholder="180"
+                      className="auth-f"
+                      style={{ paddingLeft: "32px" }}
+                    />
+                  </div>
                 </div>
 
                 <div>
