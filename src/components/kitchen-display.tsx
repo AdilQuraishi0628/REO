@@ -672,9 +672,9 @@ export default function KitchenDisplay({
       {/* 1. KDS Header: Brand Badge, Eyebrow, Title, Live Clock, Live Indicator, Sound Toggle, Admin Link */}
       <header className="kitchen-header">
         <div className="kitchen-header-left">
-          <Link className="kitchen-brand-mark" href="/" title="TableTap Home">
+          <div className="kitchen-brand-mark" aria-hidden="true">
             <Icon name="monogram-t" size={20} />
-          </Link>
+          </div>
           <div>
             <span className="eyebrow">TableTap · Staff kitchen display</span>
             <h1 className="kitchen-heading">Kitchen Display</h1>
