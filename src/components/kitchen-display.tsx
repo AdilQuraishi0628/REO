@@ -771,42 +771,6 @@ export default function KitchenDisplay({
         </div>
       </header>
 
-      {/* 2. Order Counts Row */}
-      <section aria-label="Order summary counts" className="kitchen-counts">
-        <div className="kitchen-count pending">
-          <div className="count-label-row">
-            <IconClock size={16} />
-            <span>New / Pending</span>
-          </div>
-          <strong>{counts.pending}</strong>
-        </div>
-
-        <div className="kitchen-count preparing">
-          <div className="count-label-row">
-            <IconClock size={16} />
-            <span>Preparing</span>
-          </div>
-          <strong>{counts.preparing}</strong>
-        </div>
-
-        <div className="kitchen-count ready">
-          <div className="count-label-row">
-            <IconServed size={16} />
-            <span>Ready to Serve</span>
-          </div>
-          <strong>{counts.ready}</strong>
-        </div>
-
-        <div
-          className={`kitchen-count service-calls ${pendingRequests.length ? "active-alert" : ""}`}
-        >
-          <div className="count-label-row">
-            <IconBell size={16} />
-            <span>Table Calls</span>
-          </div>
-          <strong>{pendingRequests.length}</strong>
-        </div>
-      </section>
 
       {/* 3. Live Table Service Requests */}
       <section aria-label="Table service requests" className="kitchen-service-requests-panel">
