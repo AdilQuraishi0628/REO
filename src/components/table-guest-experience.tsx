@@ -896,12 +896,12 @@ export default function TableGuestExperience({
       {/* 1. Top Bar: Table Badge Pill on Left, Search & Service Bell on Right */}
       <header className="guest-header">
         <div className="guest-header-inner">
-          <Link href="/" className="guest-table-badge" aria-label="TableTap Home">
+          <div className="guest-table-badge" aria-label={effectiveTableLabel}>
             <span className="table-badge-t">
               <IconMonogramT size={13} />
             </span>
             <span className="badge-text">{effectiveTableLabel}</span>
-          </Link>
+          </div>
 
           <div className="guest-header-actions">
             <button
