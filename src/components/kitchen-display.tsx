@@ -620,6 +620,30 @@ export default function KitchenDisplay({
 
   return (
     <main className="kitchen-shell">
+      {/* Realtime Disconnect Alert Banner */}
+      {(connectionStatus === "offline" || connectionStatus === "reconnecting") && (
+        <div
+          aria-live="assertive"
+          className="kitchen-connection-lost-banner"
+          role="alert"
+          style={{
+            background: "#C62828",
+            color: "#FFFFFF",
+            padding: "12px 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+          }}
+        >
+          <Icon name="alert" size={18} />
+          <span>Connection lost. Reconnecting...</span>
+        </div>
+      )}
+
       {/* Audio Unlock Banner for iOS & Mobile Browsers */}
       {!isAudioUnlocked && soundEnabled && (
         <div className="kitchen-audio-unlock-banner" role="region" aria-label="Audio notification prompt">
