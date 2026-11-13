@@ -160,7 +160,7 @@ export default function TableGuestExperience({
   const [orderError, setOrderError] = useState("");
   const [orderSuccess, setOrderSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serviceMessage, setServiceMessage] = useState("");
+  const [serviceToast, setServiceToast] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
 
   // Service requests cooldown and state (anti-spam)
   const [waiterCooldown, setWaiterCooldown] = useState(0);
@@ -658,8 +658,11 @@ export default function TableGuestExperience({
     if (waiterCooldown > 0 || isCallingWaiter) return;
     const resolvedTable = hasFixedTable ? effectiveTableLabel : guestTableNumber.trim();
     if (!hasFixedTable && !resolvedTable) {
-      setServiceMessage("Please enter your table number below first so our staff knows where to reach you.");
-      setTimeout(() => setServiceMessage(""), 5000);
+      setServiceToast({
+        type: "error",
+        message: "Please enter your table number below first so our staff knows where to reach you.",
+      });
+      setTimeout(() => setServiceToast(null), 5000);
       return;
     }
     setIsCallingWaiter(true);
@@ -680,14 +683,16 @@ export default function TableGuestExperience({
       if (!response.ok) {
         throw new Error(data?.error || "Could not call waiter.");
       }
-      setServiceMessage(data?.message || `Waiter has been called for ${resolvedTable}`);
+      setServiceToast({ type: "success", message: "Waiter called" });
       setWaiterCooldown(90); // 90s anti-spam cooldown
       if (action === "service") setAction(null);
-      setTimeout(() => setServiceMessage(""), 6000);
+      setTimeout(() => setServiceToast(null), 5000);
     } catch (err) {
-      setServiceMessage(err instanceof Error ? err.message : `Waiter called for ${resolvedTable}`);
-      setWaiterCooldown(90);
-      setTimeout(() => setServiceMessage(""), 6000);
+      setServiceToast({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to call waiter. Please try again.",
+      });
+      setTimeout(() => setServiceToast(null), 5000);
     } finally {
       setIsCallingWaiter(false);
     }
@@ -697,8 +702,11 @@ export default function TableGuestExperience({
     if (billCooldown > 0 || isRequestingBill) return;
     const resolvedTable = hasFixedTable ? effectiveTableLabel : guestTableNumber.trim();
     if (!hasFixedTable && !resolvedTable) {
-      setServiceMessage("Please enter your table number below first so our staff knows where to bring your bill.");
-      setTimeout(() => setServiceMessage(""), 5000);
+      setServiceToast({
+        type: "error",
+        message: "Please enter your table number below first so our staff knows where to bring your bill.",
+      });
+      setTimeout(() => setServiceToast(null), 5000);
       return;
     }
     setIsRequestingBill(true);
@@ -719,14 +727,16 @@ export default function TableGuestExperience({
       if (!response.ok) {
         throw new Error(data?.error || "Could not request bill.");
       }
-      setServiceMessage(data?.message || `Bill requested for ${resolvedTable}`);
+      setServiceToast({ type: "success", message: data?.message || `Bill requested for ${resolvedTable}` });
       setBillCooldown(90); // 90s anti-spam cooldown
       if (action === "service") setAction(null);
-      setTimeout(() => setServiceMessage(""), 6000);
+      setTimeout(() => setServiceToast(null), 6000);
     } catch (err) {
-      setServiceMessage(err instanceof Error ? err.message : `Bill requested for ${resolvedTable}`);
-      setBillCooldown(90);
-      setTimeout(() => setServiceMessage(""), 6000);
+      setServiceToast({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to request bill. Please try again.",
+      });
+      setTimeout(() => setServiceToast(null), 6000);
     } finally {
       setIsRequestingBill(false);
     }
@@ -1037,10 +1047,20 @@ export default function TableGuestExperience({
           <div className="toast-progress-bar" />
         </aside>
       )}
-      {serviceMessage && (
-        <aside aria-live="polite" className="guest-toast-banner info">
-          <span className="toast-icon"><Icon name="bell" size={14} animate="swap" /></span>
-          <span>{serviceMessage}</span>
+      {serviceToast && (
+        <aside
+          aria-live="polite"
+          className={`guest-toast-banner ${serviceToast.type}`}
+          style={serviceToast.type === "error" ? { background: "#C62828", color: "#FFFFFF", border: "1px solid #B71C1C" } : undefined}
+        >
+          <span className="toast-icon">
+            <Icon
+              name={serviceToast.type === "success" ? "check" : serviceToast.type === "error" ? "alert-triangle" : "bell"}
+              size={14}
+              animate={serviceToast.type === "success" ? "draw" : undefined}
+            />
+          </span>
+          <span>{serviceToast.message}</span>
           <div className="toast-progress-bar" />
         </aside>
       )}
